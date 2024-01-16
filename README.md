@@ -2,7 +2,7 @@
 
 ![holmes_logo](./images/holmes_logo.png)
 
-Pytorch Code for our paper:  **Holmes: Towards Distributed Training Across Clusters with Heterogeneous NIC Environment**
+Pytorch Code for our paper:  **Holmes: Towards Distributed Training Across Clusters with Heterogeneous NIC Environment** [[arxiv](https://arxiv.org/abs/2312.03549)]
 
 ## Introduction
 
