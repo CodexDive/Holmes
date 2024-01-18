@@ -64,3 +64,17 @@ The work of Megatron-LM and Megatron-LLaMA have given us great inspiration.
 https://github.com/NVIDIA/Megatron-LM
 
 https://github.com/alibaba/Megatron-LLaMA
+
+
+
+### Cite Our Work
+
+```
+@article{yang2023holmes,
+  title={Holmes: Towards Distributed Training Across Clusters with Heterogeneous NIC Environment},
+  author={Yang, Fei and Peng, Shuang and Sun, Ning and Wang, Fangyu and Tan, Ke and Wu, Fu and Qiu, Jiezhong and Pan, Aimin},
+  journal={arXiv preprint arXiv:2312.03549},
+  year={2023}
+}
+```
+
