@@ -2,7 +2,7 @@
 
 ![holmes_logo](./images/holmes_logo.png)
 
-Pytorch Code for our paper:  **Holmes: Towards Distributed Training Across Clusters with Heterogeneous NIC Environment** [[arxiv](https://arxiv.org/abs/2312.03549)]
+PyTorch Code for our paper:  **Holmes: Towards Distributed Training Across Clusters with Heterogeneous NIC Environment** [[arxiv](https://arxiv.org/abs/2312.03549)]
 
 ## Introduction
 
@@ -15,7 +15,7 @@ Our codebase is capable of efficiently training large language models with both 
 
 ## Requirements
 
-The codebase was verified on **Python-3.8.10, PyTorch-2.1.0, CUDA Version: 12.1**. We strongly recommend using the latest pytorch, cuda, nccl and APEX release. You can launch an instance of the PyTorch container and mount Holmes,  your dataset with the following Docker commands:
+The codebase was verified on **Python-3.8.10, PyTorch-2.1.0, CUDA Version: 12.1**. We strongly recommend using the latest PyTorch, cuda, nccl and APEX release. You can launch an instance of the PyTorch container and mount Holmes,  your dataset with the following Docker commands:
 
 ```
 docker pull nvcr.io/nvidia/pytorch:xx.xx-py3
@@ -29,13 +29,13 @@ We've provided several scripts for pretraining GPT in the **examples** directory
 
 ### GPT Pretraining
 
-- The **examples/pretrain_gpt_4_nodes.sh** script  runs 32s GPU (with heterogeneous NIC) 39.1B parameter GPT pretraining. 
+- The **examples/pretrain_gpt_4_nodes.sh** script runs 32 GPUs (with heterogeneous NIC) for a pretraining task on GPT with 39.1B parameters. 
 
 Most of the arguments are fairly self-explanatory. By default, the learning rate decays linearly over the training iterations starting at `--lr` to a minimum set by `--min-lr` over `--lr-decay-iters` iterations. The fraction of training iterations used for warmup is set by `--lr-warmup-fraction`.  We use `train-iters` as the training iterations requested. Alternatively, one can provide `--train-samples` which is total number of samples to train on. If this option is present, then instead of providing `--lr-decay-iters`, one will need to provide `--lr-decay-samples`. The `--data-path` now includes the additional `_text_document` suffix added in preprocessing.  `--use-hetnet` can control run the GPT pretraining over the heterogeneous NIC environment, and the ` --use-distributed-optimizer` flag to enable overlapped distributed optimizer.
 
 Further command line arguments are described in the source file [`arguments.py`](https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/arguments.py).
 
-To run `examples/pretrain_gpt_XX.sh`, make any desired modifications including setting the environment variables for `CHECKPOINT_PATH`, `VOCAB_FILE`, `DATA_PATH` to specify the data path.  `NUM_IB_BLOCK` and  `NUM_GPUS_PER_IB_BLOCK`to specify the number of IB clocks and the number of GPUs  in each block for model parallelism. And also need to specify the network interface (`SOCKET_IFNAME`) and Host Channel Adapter (`HCA` ) for network card. Make sure to set these variables to their paths in the container. 
+To run `examples/pretrain_gpt_XX.sh`, you need to make desired modifications including setting the environment variables for `CHECKPOINT_PATH`, `VOCAB_FILE`, `DATA_PATH` to specify the data path.  `NUM_IB_BLOCK` and  `NUM_GPUS_PER_IB_BLOCK` to specify the number of IB clocks and the number of GPUs in each block for model parallelism. And you also need to specify the network interface (`SOCKET_IFNAME`) and Host Channel Adapter (`HCA`) for network card. Make sure to set these variables to their paths in the container. 
 
 ### Arguments
 
