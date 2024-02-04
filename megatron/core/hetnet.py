@@ -1,7 +1,9 @@
 import os
 import torch
 from megatron import get_args
+from tools.config import nccl_config
 import datetime
+
 
 
 def print_rank_0(message):
@@ -30,14 +32,14 @@ def set_nccl_socket_envs():
     os.unsetenv("NCCL_IBEXT_DISABLE")
     os.unsetenv("NCCL_SOCKET_IFNAME")
     os.unsetenv("NCCL_IB_HCA")
-    os.unsetenv('NCCL_NET_GDR_LEVEL')
+    os.unsetenv("NCCL_NET_GDR_LEVEL")
     os.unsetenv("NCCL_NET")
     os.unsetenv("NCCL_COMM_ID")
     
-    os.environ["NCCL_NET"]="Socket"
-    os.environ['NCCL_IB_DISABLE']="1"
-    os.environ['NCCL_IBEXT_DISABLE']="1"
-    os.environ['NCCL_SOCKET_IFNAME']="bond0"
+    os.environ["NCCL_IB_DISABLE"]=nccl_config.DISABLE
+    os.environ["NCCL_IBEXT_DISABLE"]=nccl_config.DISABLE
+    os.environ["NCCL_SOCKET_IFNAME"]=nccl_config.SOCKET_IFNAME
+    os.environ["NCCL_NET"]=nccl_config.NET_Socket
     
 
 def set_nccl_ib_envs():
@@ -52,17 +54,17 @@ def set_nccl_ib_envs():
     os.unsetenv("NCCL_IB_GID_INDEX")
     
     if args.use_hetnet:
-        os.environ["NCCL_NET"]="IB"
-        os.environ['NCCL_IB_DISABLE']="0"
-        os.environ['NCCL_IBEXT_DISABLE']="0"
-        os.environ['NCCL_NET_GDR_LEVEL']="3"
-        os.environ['NCCL_SOCKET_IFNAME']="bond0"
-        os.environ['NCCL_IB_HCA']="mlx5_5,mlx5_4,mlx5_8,mlx5_9"
+        os.environ["NCCL_NET"]=nccl_config.NET_IB
+        os.environ["NCCL_IB_DISABLE"]=nccl_config.ENABLE
+        os.environ["NCCL_IBEXT_DISABLE"]=nccl_config.ENABLE
+        os.environ["NCCL_NET_GDR_LEVEL"]=nccl_config.NET_GDR_LEVEL
+        os.environ["NCCL_SOCKET_IFNAME"]=nccl_config.SOCKET_IFNAME
+        os.environ["NCCL_IB_HCA"]=nccl_config.IB_HCA
     else:
-        os.environ['NCCL_IB_DISABLE']="1"
-        os.environ['NCCL_IBEXT_DISABLE']="1"
-        os.environ['NCCL_SOCKET_IFNAME']="bond0"
-        os.environ["NCCL_NET"]="Socket"
+        os.environ["NCCL_IB_DISABLE"]=nccl_config.DISABLE
+        os.environ["NCCL_IBEXT_DISABLE"]=nccl_config.DISABLE
+        os.environ["NCCL_SOCKET_IFNAME"]=nccl_config.SOCKET_IFNAME
+        os.environ["NCCL_NET"]=nccl_config.NET_Socket
 
   
 def set_nccl_roce_envs():
@@ -72,22 +74,22 @@ def set_nccl_roce_envs():
     os.unsetenv("NCCL_IBEXT_DISABLE")
     os.unsetenv("NCCL_SOCKET_IFNAME")
     os.unsetenv("NCCL_IB_HCA")
-    os.unsetenv('NCCL_NET_GDR_LEVEL')
+    os.unsetenv("NCCL_NET_GDR_LEVEL")
     os.unsetenv("NCCL_NET")
     os.unsetenv("NCCL_IB_GID_INDEX")
     
     if args.use_hetnet:
-        os.environ["NCCL_NET"]="IB"
-        os.environ['NCCL_IB_DISABLE']="0"
-        os.environ['NCCL_IBEXT_DISABLE']="0"
-        os.environ['NCCL_SOCKET_IFNAME']="bond0"
-        os.environ['NCCL_IB_HCA']='mlx5_5,mlx5_4'
-        os.environ['NCCL_IB_GID_INDEX']="3"
+        os.environ["NCCL_NET"]=nccl_config.NET_IB
+        os.environ["NCCL_IB_DISABLE"]=nccl_config.ENABLE
+        os.environ["NCCL_IBEXT_DISABLE"]=nccl_config.ENABLE
+        os.environ["NCCL_SOCKET_IFNAME"]=nccl_config.SOCKET_IFNAME
+        os.environ["NCCL_IB_HCA"]=nccl_config.ROCE_HCA
+        os.environ["NCCL_IB_GID_INDEX"]=nccl_config.IB_GID_INDEX
     else:
-        os.environ["NCCL_NET"]="Socket"
-        os.environ['NCCL_IB_DISABLE']="1"
-        os.environ['NCCL_IBEXT_DISABLE']="1"
-        os.environ['NCCL_SOCKET_IFNAME']="bond0"
+        os.environ["NCCL_IB_DISABLE"]=nccl_config.DISABLE
+        os.environ["NCCL_IBEXT_DISABLE"]=nccl_config.DISABLE
+        os.environ["NCCL_SOCKET_IFNAME"]=nccl_config.SOCKET_IFNAME
+        os.environ["NCCL_NET"]=nccl_config.NET_Socket
 
 
 def init_nccl_net(group):

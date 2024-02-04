@@ -55,6 +55,28 @@ Enable overlapped distributed optimizer in the LLM training.
 
 Further command line arguments are described in the source file [`arguments.py`](https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/arguments.py).
 
+### NCCL Config
+
+Config path：`./config.json`
+
+The config file is used to set the NCCL Environment Variables.
+
+```
+{
+    "SOCKET_IFNAME" : "bond0",
+    "NET_IB" : "IB",
+    "NET_Socket" : "Socket",
+    "IB_HCA" : "mlx5_5,mlx5_4,mlx5_8,mlx5_9",
+    "ROCE_HCA" : "mlx5_5,mlx5_4",
+    "NET_GDR_LEVEL": "3",
+    "IB_GID_INDEX" : "3",
+    "DISABLE": "1",
+    "ENABLE": "0"
+}
+```
+
+see the NCCL document for more details：https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html
+
 
 
 ### Reference
