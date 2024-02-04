@@ -36,8 +36,8 @@ def set_nccl_socket_envs():
     os.unsetenv("NCCL_NET")
     os.unsetenv("NCCL_COMM_ID")
     
-    os.environ["NCCL_IB_DISABLE"]="1"
-    os.environ["NCCL_IBEXT_DISABLE"]="1"
+    os.environ["NCCL_IB_DISABLE"]=nccl_config.DISABLE
+    os.environ["NCCL_IBEXT_DISABLE"]=nccl_config.DISABLE
     os.environ["NCCL_SOCKET_IFNAME"]=nccl_config.SOCKET_IFNAME
     os.environ["NCCL_NET"]=nccl_config.NET_Socket
     
