@@ -4,16 +4,16 @@
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 # export NCCL_DEBUG=INFO
-export NCCL_SOCKET_IFNAME=ens2
-export GLOO_SOCKET_IFNAME=ens2
-
+export NCCL_SOCKET_IFNAME=ens11
+export GLOO_SOCKET_IFNAME=ens11
+export CUDA_VISIBLE_DEVICES=4,5,6,7
 # Change for multinode config
 MASTER_ADDR=10.11.12.218
 MASTER_PORT=6000
 NNODES=2
-NODE_RANK=0
-NODE_DEVICES=8
-NODE_TYPE=t4
+NODE_RANK=1
+NODE_DEVICES=4
+NODE_TYPE=a100
 
 CHECKPOINT_PATH=./checkpoint
 VOCAB_FILE=./data/gpt2-vocab.json
@@ -34,7 +34,7 @@ DISTRIBUTED_ARGS="
 #     --hetero-mode pp \
 #     --hetero-current-device-type $NODE_TYPE \
 #     --hetero-device-types t4 a100 \
-#     --hetero-pipeline-stages 2 2 2 2 10 10 \
+#     --hetero-pipeline-stages 2 4 4 2 8 8 \
 # "
 
 HETERO_ARGS="
@@ -81,7 +81,7 @@ OUTPUT_ARGS="
     --eval-interval 1000 \
     --eval-iters 10
 "
-# 
+
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \

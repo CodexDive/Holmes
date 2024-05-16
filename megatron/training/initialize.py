@@ -19,6 +19,8 @@ from megatron.training.arguments import parse_args, validate_args
 from megatron.training.yaml_arguments import validate_yaml
 from megatron.training.checkpointing import load_args_from_checkpoint
 from megatron.training.global_vars import set_global_variables
+from megatron.training.global_vars import set_hetero_context
+from megatron.training.global_vars import get_hetero_context
 from megatron.legacy.model.transformer import bias_dropout_add_fused_train
 from megatron.legacy.model.fused_bias_gelu import bias_gelu
 
@@ -240,7 +242,12 @@ def _initialize_distributed():
             rank=args.rank,
             timeout=timedelta(minutes=args.distributed_timeout_minutes),
         )
-
+    if args.hetero_mode is not None:
+        # Build the heterogenous context after torch.distributed is initialized and
+        # before model parallel is initialized.
+        set_hetero_context(args)
+        if torch.distributed.get_rank() == 0:
+            print(get_hetero_context(), flush=True)
     # Set the tensor model-parallel, pipeline model-parallel, and
     # data-parallel communicators.
     if device_count > 0:
@@ -256,6 +263,7 @@ def _initialize_distributed():
                 expert_model_parallel_size=args.expert_model_parallel_size,
                 distributed_timeout_minutes=args.distributed_timeout_minutes,
                 nccl_communicator_config_path=args.nccl_communicator_config_path,
+                hetero_mode=args.hetero_mode
             )
             if args.rank == 0:
                 print(
