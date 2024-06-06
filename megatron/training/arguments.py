@@ -1707,5 +1707,6 @@ def _add_hetero_args(parser):
                        'hetero-pipeline-stages must be in the form:'
                        'n0 layers_0_0 layers_0_1 ... n1 nlayers_1_0 nlayers_1_1 ...'
                        'The order should be consistent with --hetero-device-types.')
-
+    group.add_argument('--use-hetnet',action='store_true',
+                       help='enable HETNET in the training process in hetero mode.')
     return parser

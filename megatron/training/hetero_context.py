@@ -176,6 +176,7 @@ class HeteroContext:
             physical_ranks.append(
                 self._logical_rank_to_physical_rank[logical_rank])
         return physical_ranks
+    
 
     def to_logical_ranks(self, physical_ranks):
         if self._hetero_mode is None:
@@ -185,6 +186,10 @@ class HeteroContext:
             logical_ranks.append(
                 self._physical_rank_to_logical_rank[physical_rank])
         return logical_ranks
+    
+    def get_device_types(self,physical_ranks):
+        device_types= set(self._rank_infos[rank]['device_type'] for rank in physical_ranks)
+        return device_types
 
     def __str__(self):
         return (f"HeteroContext( \n"

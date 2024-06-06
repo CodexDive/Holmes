@@ -463,7 +463,7 @@ def get_optimizer_param_scheduler(optimizer):
     else:
         raise Exception(
             'either train-iters or train-samples should be provided.')
-
+    
     opt_param_scheduler = OptimizerParamScheduler(
         optimizer,
         init_lr=args.lr_warmup_init,

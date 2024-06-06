@@ -3,10 +3,10 @@
 # Runs the "345M" parameter model
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-# export NCCL_DEBUG=INFO
+export NCCL_DEBUG=INFO
+# export CUDA_VISIBLE_DEVICES=4,5,6,7
 export NCCL_SOCKET_IFNAME=ens2
 export GLOO_SOCKET_IFNAME=ens2
-
 # Change for multinode config
 MASTER_ADDR=10.11.12.218
 MASTER_PORT=6000
@@ -34,27 +34,32 @@ DISTRIBUTED_ARGS="
 #     --hetero-mode pp \
 #     --hetero-current-device-type $NODE_TYPE \
 #     --hetero-device-types t4 a100 \
-#     --hetero-pipeline-stages 2 2 2 2 10 10 \
+#     --hetero-pipeline-stages 1 4 1 20 \
+#     --use-hetnet
 # "
+#   
 
 HETERO_ARGS="
     --hetero-mode dp \
     --hetero-current-device-type $NODE_TYPE \
     --hetero-device-types t4 a100 \
-    --hetero-micro-batch-sizes 8 1 4 2\
+    --hetero-micro-batch-sizes 8 1 2 2\
+    --use-hetnet
 "
 
+# 
 # --global-batch-size 12 \
-
+# --micro-batch-size 1 \
 GPT_ARGS="
     --num-layers 24 \
     --hidden-size 1024 \
     --num-attention-heads 16 \
     --seq-length 1024 \
     --max-position-embeddings 1024 \
-    --global-batch-size 16 \
+    --pipeline-model-parallel-size 1 \
+    --global-batch-size 12 \
     --lr 0.00015 \
-    --train-iters 100 \
+    --train-iters 50 \
     --lr-decay-iters 320000 \
     --lr-decay-style cosine \
     --min-lr 1.0e-5 \
@@ -65,9 +70,11 @@ GPT_ARGS="
     --timing-log-level 2 \
     --log-throughput \
     --empty-unused-memory-level 0 \
-    --use-checkpoint-opt_param-scheduler
+    --use-checkpoint-opt_param-scheduler \
+    --timing-log-level 2 \
+    --attention-softmax-in-fp32 \
 "
-
+  
 DATA_ARGS="
     --data-path $DATA_PATH \
     --vocab-file $VOCAB_FILE \
@@ -81,7 +88,7 @@ OUTPUT_ARGS="
     --eval-interval 1000 \
     --eval-iters 10
 "
-# 
+  
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
