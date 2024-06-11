@@ -35,7 +35,7 @@ Most of the arguments are fairly self-explanatory. By default, the learning rate
 
 Further command line arguments are described in the source file [`arguments.py`](https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/arguments.py).
 
-To run `examples/pretrain_gpt_XX.sh`, you need to make desired modifications including setting the environment variables for `CHECKPOINT_PATH`, `VOCAB_FILE`, `DATA_PATH` to specify the data path.  `NUM_IB_BLOCK` and  `NUM_GPUS_PER_IB_BLOCK` to specify the number of IB clocks and the number of GPUs in each block for model parallelism. And you also need to specify the network interface (`SOCKET_IFNAME`) and Host Channel Adapter (`HCA`) for network card. Make sure to set these variables to their paths in the container. 
+To run `examples/pretrain_gpt_XX.sh`, you need to make desired modifications including setting the environment variables for `CHECKPOINT_PATH`, `VOCAB_FILE`, `DATA_PATH` to specify the data path.  And you also need to specify the network interface (`SOCKET_IFNAME`) and Host Channel Adapter (`HCA`) for network card. Make sure to set these variables to their paths in the container. 
 
 ### Arguments
 
@@ -43,9 +43,17 @@ To run `examples/pretrain_gpt_XX.sh`, you need to make desired modifications inc
 
 Enable cross-cluster pipeline parallelism and automatic NIC selection in the heterogeneous NIC environment.
 
-#### `--use-asymmetric-pipeline-division`
+#### `--hetero-mode`
 
-Enable self-adapting pipeline partition in the LLM training.
+Specify the heterogenous training mode pp.
+
+#### `--hetero-device-types`
+
+specify the device type or INC environment of the current node.
+
+#### `--hetero-pipeline-stages`
+
+specify the stage splitting configuration. For example, given 2 4 4 3 5 5 5, the total pipeline parallel size is 2 + 3 = 5, the total number of the model layers is 4 + 4 + 5 + 5 + 5 = 23, the pipeline parallel size for the first device type in the hetero-device-types list is 2 and the pipeline parallel size for the second device type in the hetero-device-types is list 3.
 
 #### `--overlapped-distributed-optimizer`
 
