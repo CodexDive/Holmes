@@ -33,6 +33,7 @@ def set_nccl_envs(device_name):
     os.unsetenv("NCCL_SOCKET_IFNAME")
     os.unsetenv("NCCL_IB_HCA")
     os.unsetenv("NCCL_NET_GDR_LEVEL")
+    os.unsetenv("NCCL_IB_GID_INDEX")
     os.unsetenv("NCCL_NET")
     os.unsetenv("NCCL_COMM_ID")
     
@@ -44,6 +45,8 @@ def set_nccl_envs(device_name):
         os.environ["NCCL_IBEXT_DISABLE"]=nccl_config[device_name].get("NCCL_IBEXT_DISABLE")
     if nccl_config[device_name].get("NCCL_NET_GDR_LEVEL"):
         os.environ["NCCL_NET_GDR_LEVEL"]=nccl_config[device_name].get("NCCL_NET_GDR_LEVEL")
+    if nccl_config[device_name].get("NCCL_IB_GID_INDEX"):
+        os.environ["NCCL_IB_GID_INDEX"]=nccl_config[device_name].get("NCCL_IB_GID_INDEX")
     if nccl_config[device_name].get("NCCL_SOCKET_IFNAME"):
         os.environ["NCCL_SOCKET_IFNAME"]=nccl_config[device_name].get("NCCL_SOCKET_IFNAME")
     if nccl_config[device_name].get("NCCL_IB_HCA"):
