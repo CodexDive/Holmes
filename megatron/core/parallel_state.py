@@ -236,7 +236,6 @@ def initialize_model_parallel(
         # TODO: @aoyulong fix the circular import
         from megatron.training import get_hetero_context
         hetero_context = get_hetero_context()
-
     # Get world size and rank. Ensure some consistencies.
     assert torch.distributed.is_initialized()
     world_size: int = torch.distributed.get_world_size()
@@ -489,7 +488,8 @@ def initialize_model_parallel(
         else:
             embedding_ranks = ranks
             position_embedding_ranks = ranks
-        device_types=hetero_context.get_device_types(embedding_ranks)
+        if hetero_mode:
+            device_types=hetero_context.get_device_types(embedding_ranks)
         if use_hetnex:
                 group = new_process_group(embedding_ranks,timeout=timeout, pg_options=get_nccl_options('embd', nccl_comm_cfgs),device_types=device_types)
         else:
@@ -500,7 +500,8 @@ def initialize_model_parallel(
             _EMBEDDING_GROUP = group
         if rank in ranks:
             _EMBEDDING_GLOBAL_RANKS = embedding_ranks
-        device_types=hetero_context.get_device_types(position_embedding_ranks)
+        if hetero_mode:
+            device_types=hetero_context.get_device_types(position_embedding_ranks)
         if use_hetnex:
                 group = new_process_group(position_embedding_ranks,timeout=timeout,
                 pg_options=get_nccl_options('embd', nccl_comm_cfgs),device_types=device_types)
