@@ -1,5 +1,8 @@
 torch
 numpy
+tensorstore
+zarr
+transformer_engine
 
 
 sphinx_mdinclude
