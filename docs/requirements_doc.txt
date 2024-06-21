@@ -2,7 +2,8 @@ torch
 numpy
 tensorstore
 zarr
-transformer_engine
+git+https://github.com/NVIDIA/TransformerEngine.git@stable
+
 
 
 sphinx_mdinclude
