@@ -1,4 +1,6 @@
 torch
+numpy
+
 
 sphinx_mdinclude
 sphinx-rtd-theme
