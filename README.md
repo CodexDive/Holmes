@@ -100,3 +100,4 @@ https://github.com/alibaba/Megatron-LLaMA
 }
 ```
 
+© 2024 Research Center for High Efficiency Computing System of Zhejiang Lab
