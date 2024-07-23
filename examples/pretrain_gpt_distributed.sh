@@ -3,16 +3,16 @@
 # Runs the "345M" parameter model
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-export NCCL_DEBUG=INFO
-# export CUDA_VISIBLE_DEVICES=4,5,6,7
-export NCCL_SOCKET_IFNAME=ens2
-export GLOO_SOCKET_IFNAME=ens2
+#export NCCL_DEBUG=INFO
+export CUDA_VISIBLE_DEVICES=1,2
+#export NCCL_SOCKET_IFNAME=ens2
+#export GLOO_SOCKET_IFNAME=ens2
 # Change for multinode config
-MASTER_ADDR=10.11.12.218
+MASTER_ADDR=10.5.30.42
 MASTER_PORT=6000
-NNODES=2
+NNODES=1
 NODE_RANK=0
-NODE_DEVICES=8
+NODE_DEVICES=2
 NODE_TYPE=t4
 
 CHECKPOINT_PATH=./checkpoint
@@ -30,22 +30,21 @@ DISTRIBUTED_ARGS="
 "
 
 
-# HETERO_ARGS="
-#     --hetero-mode pp \
-#     --hetero-current-device-type $NODE_TYPE \
-#     --hetero-device-types t4 a100 \
-#     --hetero-pipeline-stages 1 4 1 20 \
-#     --use-hetnet
-# "
+ HETERO_ARGS="
+     --hetero-mode pp \
+     --hetero-current-device-type $NODE_TYPE \
+     --hetero-device-types t4 a100 \
+     --hetero-pipeline-stages 1 8 1 16 \
+ "
 #   
 
-HETERO_ARGS="
-    --hetero-mode dp \
-    --hetero-current-device-type $NODE_TYPE \
-    --hetero-device-types t4 a100 \
-    --hetero-micro-batch-sizes 8 1 2 2\
-    --use-hetnet
-"
+# HETERO_ARGS="
+#     --hetero-mode dp \
+#     --hetero-current-device-type $NODE_TYPE \
+#     --hetero-device-types t4 a100 \
+#     --hetero-micro-batch-sizes 8 1 2 2\
+#     --use-hetnet
+# "
 
 # 
 # --global-batch-size 12 \
@@ -56,8 +55,9 @@ GPT_ARGS="
     --num-attention-heads 16 \
     --seq-length 1024 \
     --max-position-embeddings 1024 \
-    --pipeline-model-parallel-size 1 \
-    --global-batch-size 12 \
+    --pipeline-model-parallel-size 2 \
+    --micro-batch-size 1 \
+    --global-batch-size 8 \
     --lr 0.00015 \
     --train-iters 50 \
     --lr-decay-iters 320000 \
@@ -73,6 +73,7 @@ GPT_ARGS="
     --use-checkpoint-opt_param-scheduler \
     --timing-log-level 2 \
     --attention-softmax-in-fp32 \
+    --use-mcore-models \
 "
   
 DATA_ARGS="
@@ -88,7 +89,7 @@ OUTPUT_ARGS="
     --eval-interval 1000 \
     --eval-iters 10
 "
-  
+# $HETERO_ARGS \
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
