@@ -118,11 +118,21 @@ https://github.com/FlagOpen/FlagScale
 ### Cite Our Work
 
 ```
-@article{yang2023holmes,
-  title={Holmes: Towards Distributed Training Across Clusters with Heterogeneous NIC Environment},
-  author={Yang, Fei and Peng, Shuang and Sun, Ning and Wang, Fangyu and Tan, Ke and Wu, Fu and Qiu, Jiezhong and Pan, Aimin},
-  journal={arXiv preprint arXiv:2312.03549},
-  year={2023}
+@inproceedings{10.1145/3673038.3673095,
+author = {Yang, Fei and Peng, Shuang and Sun, Ning and Wang, Fangyu and Wang, Yuanyuan and Wu, Fu and Qiu, Jiezhong and Pan, Aimin},
+title = {Holmes: Towards Distributed Training Across Clusters with Heterogeneous NIC Environment},
+year = {2024},
+isbn = {9798400717932},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3673038.3673095},
+doi = {10.1145/3673038.3673095},
+booktitle = {Proceedings of the 53rd International Conference on Parallel Processing},
+pages = {514–523},
+numpages = {10},
+keywords = {Heterogeneous NIC environment, Large language model, Training framework},
+location = {Gotland, Sweden},
+series = {ICPP '24}
 }
 ```
 
