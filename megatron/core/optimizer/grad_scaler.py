@@ -20,7 +20,7 @@ class MegatronGradScaler(ABC):
 
     @property
     def inv_scale(self):
-        return self._scale.double().reciprocal().float()
+        return self._scale.reciprocal().float()
 
     @abstractmethod
     def update(self, found_inf: bool):

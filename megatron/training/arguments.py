@@ -241,14 +241,37 @@ def validate_args(args, defaults={}):
         assert args.pipeline_model_parallel_size > 2, \
             'pipeline-model-parallel size should be greater than 2 with ' \
             'interleaved schedule'
-        assert args.num_layers % args.transformer_pipeline_model_parallel_size == 0, \
-            'number of layers should be divisible by the pipeline parallel size'
-        num_layers_per_pipeline_stage = args.num_layers // args.transformer_pipeline_model_parallel_size
-        assert num_layers_per_pipeline_stage % args.num_layers_per_virtual_pipeline_stage == 0, \
-            'number of layers per pipeline stage must be divisible number of layers per virtual pipeline stage'
-        args.virtual_pipeline_model_parallel_size = num_layers_per_pipeline_stage // \
-            args.num_layers_per_virtual_pipeline_stage
+        if args.num_layers_per_stage is None:
+            assert args.num_layers % args.num_layers_per_virtual_pipeline_stage == 0, \
+                'number of layers is not divisible by number of layers per virtual ' \
+                'pipeline stage'
+            args.virtual_pipeline_model_parallel_size = \
+                (args.num_layers // args.transformer_pipeline_model_parallel_size) // \
+                args.num_layers_per_virtual_pipeline_stage
+        else:
+            stage_split = args.num_layers_per_stage[::2]
+            num_layers_per_stage_split = args.num_layers_per_stage[1::2]
+            num_layers_per_stage = []
+            for i in range(len(stage_split)):
+                for j in range(stage_split[i]):
+                    num_layers_per_stage.append(num_layers_per_stage_split[i])
+            args.num_layers_per_stage = num_layers_per_stage
+            total_virtual_pipeline_stage_num = len(args.num_layers_per_stage)
+            assert total_virtual_pipeline_stage_num % args.pipeline_model_parallel_size == 0, \
+                'len(args.num_layers_per_stage) is not divisible by pp size'
+            args.virtual_pipeline_model_parallel_size = len(args.num_layers_per_stage) // \
+                args.pipeline_model_parallel_size
     else:
+        if args.num_layers_per_stage is not None:
+            stage_split = args.num_layers_per_stage[::2]
+            num_layers_per_stage_split = args.num_layers_per_stage[1::2]
+            num_layers_per_stage = []
+            for i in range(len(stage_split)):
+                for j in range(stage_split[i]):
+                    num_layers_per_stage.append(num_layers_per_stage_split[i])
+            args.num_layers_per_stage = num_layers_per_stage
+            assert len(args.num_layers_per_stage) == args.pipeline_model_parallel_size, \
+                'len(args.num_layers_per_stage) do not match with pp size'
         args.virtual_pipeline_model_parallel_size = None
         # Overlap P2P communication is disabled if not using the interleaved schedule.
         args.overlap_p2p_comm = False
@@ -391,8 +414,11 @@ def validate_args(args, defaults={}):
 
     if args.moe_grouped_gemm:
         assert args.bf16, 'Currently GroupedGEMM for MoE only supports bf16 dtype.'
-        dc = torch.cuda.get_device_capability()
-        assert dc[0] >= 8, "Unsupported compute capability for GroupedGEMM kernels."
+        #dc = torch.cuda.get_device_capability()
+        #assert dc[0] >= 8, "Unsupported compute capability for GroupedGEMM kernels."
+
+    assert not (args.moe_block_sparse_gemm and args.moe_grouped_gemm), \
+        'moe_block_sparse_gemm and moe_grouped_gemm cannot be used together.'
 
     if args.weight_decay_incr_style == 'constant':
         assert args.start_weight_decay is None
@@ -433,6 +459,50 @@ def validate_args(args, defaults={}):
         assert args.recompute_method is None, \
             'recompute method is not yet supported for ' \
             'selective recomputing granularity'
+
+    if args.recompute_num_layers_per_stage != None:
+        assert args.recompute_granularity == 'full', \
+            'recompute-num-layers-per-stage is only'\
+            'application to full recompute granularity'
+        assert args.recompute_method_per_stage is not None, \
+            'recompute_method_per_stage must be used with '\
+            'recompute_num_layers_per_stage '
+
+        recompute_num_layers_stage_split = args.recompute_num_layers_per_stage[::2]
+        recompute_num_layers_layer_split = args.recompute_num_layers_per_stage[1::2]
+        recompute_methods_stage_split = args.recompute_method_per_stage[::2]
+        recompute_methods_method_split = args.recompute_method_per_stage[1::2]
+
+        assert len(recompute_num_layers_stage_split) == len(recompute_num_layers_layer_split), \
+            'args.recompute_num_layers_per_stage setting must match form: n0, layers0, n1, layers1, ...'
+        assert len(recompute_methods_stage_split) == len(recompute_methods_method_split), \
+            'args.recompute_method_per_stage setting must match form: n0, layers0, n1, layers1, ...'
+        if args.virtual_pipeline_model_parallel_size != None:
+            assert args.pipeline_model_parallel_size * args.virtual_pipeline_model_parallel_size == sum(recompute_num_layers_stage_split), \
+                'args.recompute_num_layers_per_stage setting:' \
+                'the sum of n0, n1, ... should be equal to pipeline-model-parallel-size * virtual_pipeline_model_parallel_size'
+            assert args.pipeline_model_parallel_size * args.virtual_pipeline_model_parallel_size == sum(recompute_methods_stage_split), \
+                'args.recompute_method_per_stage setting:' \
+                'the sum of n0, n1, ... should be equal to pipeline-model-parallel-size * virtual_pipeline_model_parallel_size'
+        else:
+            assert args.pipeline_model_parallel_size == sum(recompute_num_layers_stage_split), \
+                'args.recompute_num_layers_per_stage setting:' \
+                'the sum of n0, n1, ... should be equal to pipeline-model-parallel-size.'
+            assert args.pipeline_model_parallel_size == sum(recompute_methods_stage_split), \
+                'args.recompute_method_per_stage setting:' \
+                'the sum of n0, n1, ... should be equal to pipeline-model-parallel-size.'
+
+        recompute_num_layers_per_stage = []
+        for i in range(len(recompute_num_layers_stage_split)):
+            for j in range(recompute_num_layers_stage_split[i]):
+                recompute_num_layers_per_stage.append(recompute_num_layers_layer_split[i])
+        recompute_method_per_stage = []
+        for i in range(len(recompute_methods_stage_split)):
+            for j in range(recompute_methods_stage_split[i]):
+                recompute_method_per_stage.append(recompute_methods_method_split[i])
+
+        args.recompute_num_layers_per_stage = recompute_num_layers_per_stage
+        args.recompute_method_per_stage = recompute_method_per_stage
 
     # disable sequence parallelism when tp=1
     # to avoid change in numerics when
@@ -707,7 +777,7 @@ def _add_network_size_args(parser):
                        help='Maximum number of position embeddings to use. '
                        'This is the size of position embedding.')
     group.add_argument('--position-embedding-type', type=str, default='learned_absolute',
-                       choices=['learned_absolute', 'rope'],
+                       choices=['learned_absolute', 'rope', 'alibi'],
                        help='Position embedding type.')
     group.add_argument('--use-rotary-position-embeddings', action='store_true',
                        help='Use rotary positional embeddings or not. '
@@ -941,6 +1011,15 @@ def _add_training_args(parser):
                        'uniformly divided recompute unit, '
                        '2) block: the number of individual Transformer layers '
                        'to recompute within each pipeline stage.')
+    group.add_argument('--recompute-method-per-stage', nargs='*', type=int, default=None,
+                       help='used with recompute-granularity=full, setting recompute method '
+                       'of each stage. This argument must be in the form: n0, method0, n1, method1, ...'
+                       'the sum of n0, n1, ... should be equal to pipeline-model-parallel-size.'
+                       'method: 0 means uniform, 1 means block')
+    group.add_argument('--recompute-num-layers-per-stage', nargs='*', type=int, default=None,
+                       help='used with recompute-granularity=full, setting recompute num layers '
+                       'of each stage. This argument must be in the form: n0, layers0, n1, layers1, ...'
+                       'the sum of n0, n1, ... should be equal to pipeline-model-parallel-size.')
     group.add_argument('--no-clone-scatter-output-in-embedding', action='store_false',
                        help='If not set, clone the output of the scatter in embedding layer to GC original tensor.',
                        dest='clone_scatter_output_in_embedding')
@@ -1304,6 +1383,14 @@ def _add_distributed_args(parser):
                        'is placed on its own pipeline stage, without any '
                        'transformer layers. (For T5, this flag currently only '
                        'affects the encoder embedding.)')
+    group.add_argument('--num-layers-per-stage', nargs='*', type=int, default=None,
+                       help='set layers number of each stage.'
+                       'This argument must be in the form: n0, layers0, n1, layers1, ...'
+                       'When in non-interleaved mode, the sum of n0, n1, ... should be equal'
+                       'to pipeline-model-parallel-size.'
+                       'when in interleaved mode, the sum of n0, n1, ... should be equal'
+                       'to virtual-pipeline-model-parallel-size * pipeline-model-parallel-size,'
+                       'spread with pipeline-model-parallel-size firstly')
     group.add_argument('--use-distributed-optimizer', action='store_true',
                        help='Use distributed optimizer.')
     group.add_argument('--context-parallel-size', type=int, default=1,
@@ -1313,6 +1400,8 @@ def _add_distributed_args(parser):
                        'configurations. The number of min/max thread groups and thread '
                        'group cluster size of each communicator can be configured by '
                        'setting `min_ctas`, `max_ctas`, and `cga_cluster_size`.')
+    group.add_argument('--ixte-cfg', type=str, default=None,
+                    help='Config file for ixte optimizing options.')
     return parser
 
 
@@ -1372,6 +1461,9 @@ def _add_data_args(parser):
     group.add_argument('--mock-data', action='store_true',
                        help='Skip data loading and validation and opt for artificial '
                        'generation of mock data when an implementation is available.')
+    group.add_argument('--no-data-cache-local',  action='store_false',
+                       help='locally caching data in each node.',
+                       dest='data_cache_local')
 
     group.add_argument('--vocab-size', type=int, default=None,
                        help='Size of vocab before EOD or padding.')
@@ -1581,6 +1673,8 @@ def _add_moe_args(parser):
                        help='Number of experts to route to for each token. The default is 2.')
     group.add_argument('--moe-grouped-gemm', action='store_true',
                        help='When there are multiple experts per rank, compress multiple local (potentially small) gemms in a single kernel launch to improve the utilization and performance by leveraging the Grouped GEMM feature introduced since CUTLASS 2.8 (https://github.com/fanshiqing/grouped_gemm).')
+    group.add_argument('--moe-block-sparse-gemm', action='store_true',
+                       help='Replace grouped gemm with block-sparse gemm.')
     group.add_argument('--moe-aux-loss-coeff', type=float, default=0.0,
                        help='Scaling coefficient for the aux loss: a starting value of 1e-2 is recommended.')
     group.add_argument('--moe-z-loss-coeff', type=float, default=None,

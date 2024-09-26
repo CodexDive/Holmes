@@ -94,6 +94,8 @@ class TransformerConfig(ModelParallelConfig):
     test_mode: bool = False
     """Whether to run real-time tests."""
 
+    position_embedding_type: str = "learned_absolute"
+
     ####################
     # initialization
     ####################
@@ -222,6 +224,9 @@ class TransformerConfig(ModelParallelConfig):
 
     """
 
+    moe_block_sparse_gemm: bool = False
+    """Replace grouped gemm with block-sparse gemm."""
+
     moe_aux_loss_coeff: float = 0  # 1e-2 would be a good start value for load balance loss.
     """Scaling coefficient for the aux loss. A starting value of 1e-2 is recommended."""
 
@@ -348,12 +353,13 @@ class TransformerConfig(ModelParallelConfig):
                     f'distribute_saved_activations: {self.distribute_saved_activations} must be false when sequence parallel is enabled: {self.sequence_parallel}'
                 )
 
+            '''
             if self.virtual_pipeline_model_parallel_size is not None:
                 if not self.num_layers % self.virtual_pipeline_model_parallel_size == 0:
                     raise ValueError(
                         f'num_layers: {self.num_layers} must be divisible by virtual_model_parallel_size {self.virtual_pipeline_model_parallel_size}'
                     )
-
+            '''
         if self.apply_query_key_layer_scaling:
             self.attention_softmax_in_fp32 = True
 

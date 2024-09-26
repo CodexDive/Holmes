@@ -45,7 +45,7 @@ def _split_along_last_dim(input_):
     return output
 
 
-def _split_along_first_dim(input_):
+def _split_along_first_dim(input_, tp_overlap_size=1):
     """Split the tensor along its first dimension and keep the
     corresponding slice."""
 
@@ -57,14 +57,17 @@ def _split_along_first_dim(input_):
     # Split along first dimension.
     dim_size = input_.size()[0]
     assert (
-        dim_size % world_size == 0
+        dim_size % (world_size*tp_overlap_size) == 0
     ), "First dimension of the tensor should be divisible by tensor parallel size"
-    local_dim_size = dim_size // world_size
+    tp_overlap_seq_size = dim_size // tp_overlap_size
+    local_dim_size = tp_overlap_seq_size // world_size
     rank = get_tensor_model_parallel_rank()
     dim_offset = rank * local_dim_size
-
-    output = input_[dim_offset : dim_offset + local_dim_size].contiguous()
-
+    output_list = [input_[i*tp_overlap_seq_size+dim_offset:i*tp_overlap_seq_size+dim_offset+local_dim_size] for i in range(tp_overlap_size)]
+    if tp_overlap_size == 1:
+        output = output_list[0].contiguous()
+    else:
+        output = torch.concat(output_list)
     return output
 
 
@@ -104,7 +107,7 @@ def _reduce_scatter_along_last_dim(input_):
     return output
 
 
-def _gather_along_first_dim(input_):
+def _gather_along_first_dim(input_, tp_overlap_size=1):
     """Gather tensors and concatinate along the first dimension."""
 
     world_size = get_tensor_model_parallel_world_size()
@@ -113,12 +116,16 @@ def _gather_along_first_dim(input_):
         return input_
 
     dim_size = list(input_.size())
+    input_tp_overlap_seq_size = dim_size[0] // tp_overlap_size
+    output_tp_overlap_seq_size = input_tp_overlap_seq_size * world_size
     dim_size[0] = dim_size[0] * world_size
 
     output = torch.empty(dim_size, dtype=input_.dtype, device=torch.cuda.current_device())
-    torch.distributed._all_gather_base(
-        output, input_.contiguous(), group=get_tensor_model_parallel_group()
-    )
+    input_ = input_.contiguous()
+    for i in range(tp_overlap_size):
+        torch.distributed._all_gather_base(
+            output[i*output_tp_overlap_seq_size:(i+1)*output_tp_overlap_seq_size], input_[i*input_tp_overlap_seq_size:(i+1)*input_tp_overlap_seq_size], group=get_tensor_model_parallel_group()
+        )
 
     return output
 
@@ -263,16 +270,17 @@ class _ScatterToSequenceParallelRegion(torch.autograd.Function):
     """Split the input and keep only the corresponding chuck to the rank."""
 
     @staticmethod
-    def symbolic(graph, input_):
-        return _split_along_first_dim(input_)
+    def symbolic(graph, input_, tp_overlap_size):
+        return _split_along_first_dim(input_, tp_overlap_size)
 
     @staticmethod
-    def forward(ctx, input_):
-        return _split_along_first_dim(input_)
+    def forward(ctx, input_, tp_overlap_size):
+        ctx.tp_overlap_size = tp_overlap_size
+        return _split_along_first_dim(input_, tp_overlap_size)
 
     @staticmethod
     def backward(ctx, grad_output):
-        return _gather_along_first_dim(grad_output)
+        return _gather_along_first_dim(grad_output, ctx.tp_overlap_size), None
 
 
 class _GatherFromSequenceParallelRegion(torch.autograd.Function):
@@ -444,8 +452,8 @@ def gather_from_tensor_model_parallel_region(input_):
     return _GatherFromModelParallelRegion.apply(input_)
 
 
-def scatter_to_sequence_parallel_region(input_):
-    return _ScatterToSequenceParallelRegion.apply(input_)
+def scatter_to_sequence_parallel_region(input_, tp_overlap_size=1):
+    return _ScatterToSequenceParallelRegion.apply(input_, tp_overlap_size)
 
 
 def gather_from_sequence_parallel_region(input_, tensor_parallel_output_grad=True):

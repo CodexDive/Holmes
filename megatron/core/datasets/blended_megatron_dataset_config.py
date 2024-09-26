@@ -58,6 +58,8 @@ class BlendedMegatronDatasetConfig:
     tokenizer: Optional[MegatronTokenizer] = None
     """The MegatronTokenizer instance or None. Required for datasets which do online tokenization."""
 
+    do_cache_local: bool = False
+
     def __post_init__(self) -> None:
         """Do asserts and set fields post init
         """

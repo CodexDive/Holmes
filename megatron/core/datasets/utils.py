@@ -21,6 +21,12 @@ def compile_helpers():
     """
     import os
     import subprocess
+    from pathlib import Path
+    import fnmatch
+    root_path = Path(__file__).resolve().parent
+    for name in os.listdir(root_path):
+        if fnmatch.fnmatch(name, "helpers.*.so"):
+            return
 
     command = ["make", "-C", os.path.abspath(os.path.dirname(__file__))]
     if subprocess.run(command).returncode != 0:

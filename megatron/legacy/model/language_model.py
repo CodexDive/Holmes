@@ -15,12 +15,25 @@ from .module import MegatronModule
 from .transformer import ParallelTransformer
 from .utils import get_linear_layer
 from .utils import init_method_normal, scaled_init_method_normal
+from megatron.core import ixte_extensions
 
 
 def parallel_lm_logits(input_, word_embeddings_weight, parallel_output,
                        bias=None):
     """LM logits using word embedding weights."""
     args = get_args()
+    if ixte_extensions._USE_IXTE and args.transformer_impl == 'transformer_engine':
+        assert bias is None
+        logits_parallel = ixte_extensions.get_logits_linear_func()(
+        input=input_,
+        weight=word_embeddings_weight,
+        sequence_parallel=args.sequence_parallel,
+        gradient_accumulation_fusion=args.gradient_accumulation_fusion,
+        tp_group=mpu.get_tensor_model_parallel_group()
+        )
+        if parallel_output:
+            return logits_parallel
+        return tensor_parallel.gather_from_tensor_model_parallel_region(logits_parallel)
     # Parallel logits.
     if args.async_tensor_model_parallel_allreduce or\
             args.sequence_parallel:
@@ -181,6 +194,7 @@ class Embedding(MegatronModule):
         self.clone_scatter_output_in_embedding = args.clone_scatter_output_in_embedding
         # Embeddings dropout
         self.embedding_dropout = torch.nn.Dropout(embedding_dropout_prob)
+        self.use_ixte = ixte_extensions._USE_IXTE and args.transformer_impl == "transformer_engine"
 
     def zero_parameters(self):
         """Zero out all parameters in embedding."""
@@ -234,7 +248,10 @@ class Embedding(MegatronModule):
 
         # Dropout.
         if self.sequence_parallel:
-            embeddings = tensor_parallel.scatter_to_sequence_parallel_region(embeddings)
+            if self.use_ixte:
+                embeddings = tensor_parallel.scatter_to_sequence_parallel_region(embeddings, ixte_extensions.get_embedding_tp_overlap_size())
+            else:
+                embeddings = tensor_parallel.scatter_to_sequence_parallel_region(embeddings)
             # `scatter_to_sequence_parallel_region` returns a view, which prevents
             # the original tensor from being garbage collected. Clone to facilitate GC.
             # Has a small runtime cost (~0.5%).
@@ -380,6 +397,10 @@ class TransformerLanguageModel(MegatronModule):
                 rotary_percent=args.rotary_percent,
                 seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor,
             )
+            self.use_const_rope = config.context_parallel_size == 1
+            if self.use_const_rope:
+                rotary_pos_emb_out = self.rotary_pos_emb(self.seq_length)
+                self.rotary_pos_emb_v = rotary_pos_emb_out
 
         # Encoder (usually set to True, False if part of an encoder-decoder
         # architecture and in encoder-only stage).
@@ -481,11 +502,14 @@ class TransformerLanguageModel(MegatronModule):
         # Rotary positional embeddings
         rotary_pos_emb = None
         if self.use_rotary_position_embeddings:
-            if inference_params is not None:
-                rotary_pos_emb = \
-                    self.rotary_pos_emb(inference_params.max_sequence_length)
+            if self.use_const_rope and inference_params is None:
+                rotary_pos_emb = self.rotary_pos_emb_v
             else:
-                rotary_pos_emb = self.rotary_pos_emb(self.seq_length)
+                if inference_params is not None:
+                    rotary_pos_emb = \
+                        self.rotary_pos_emb(inference_params.max_sequence_length)
+                else:
+                    rotary_pos_emb = self.rotary_pos_emb(self.seq_length)
 
         # Run encoder.
         if enc_hidden_states is None:

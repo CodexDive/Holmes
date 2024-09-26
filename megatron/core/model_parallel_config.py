@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Callable, ContextManager, Optional
+import os
 
 import torch
 
@@ -178,6 +179,11 @@ class ModelParallelConfig:
        If true, allows Reduce-Scatter overlap with Fprop GEMM by pipelining the GEMM and
        Reduce-Scatter both done atomically. Don't care if tp_comm_overlap is False.
     """
+
+    transformer_impl: str = None
+
+    # Parallelism
+    finalize_model_grads_func: Callable = None
 
     ###################
     # Pipeline Parallel

@@ -115,7 +115,7 @@ class T5Model(LanguageModule):
         fp16_lm_cross_entropy: bool = False,
         parallel_output: bool = True,
         share_embeddings_and_output_weights: bool = False,
-        position_embedding_type: Literal['learned_absolute', 'rope'] = 'learned_absolute',
+        position_embedding_type: Literal['learned_absolute', 'rope', 'alibi'] = 'learned_absolute',
         rotary_percent: float = 1.0,
         seq_len_interpolation_factor: Optional[float] = None,
     ):

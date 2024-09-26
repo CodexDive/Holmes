@@ -7,6 +7,7 @@ import torch
 from megatron.training import get_args
 from megatron.core import tensor_parallel
 from .module import MegatronModule
+from megatron.core import ixte_extensions
 
 from .enums import AttnMaskType
 from .language_model import parallel_lm_logits
@@ -29,11 +30,35 @@ def post_language_model_processing(lm_output, labels, logit_weights,
     else:
         # [b s] => [s b]
         labels = labels.transpose(0,1).contiguous()
+
         if fp16_lm_cross_entropy:
             assert output.dtype == torch.half
             loss = tensor_parallel.vocab_parallel_cross_entropy(output, labels)
         else:
-            loss = tensor_parallel.vocab_parallel_cross_entropy(output.float(), labels)
+            if ixte_extensions._USE_IXTE:
+                from megatron.core.tensor_parallel.utils import VocabUtility
+                from megatron.core.parallel_state import (
+                    get_tensor_model_parallel_group,
+                    get_tensor_model_parallel_rank,
+                    get_tensor_model_parallel_world_size,
+            )
+                get_vocab_range = VocabUtility.vocab_range_from_per_partition_vocab_size
+                partition_vocab_size = output.size()[-1]
+                rank = get_tensor_model_parallel_rank()
+                world_size = get_tensor_model_parallel_world_size()
+                group = get_tensor_model_parallel_group()
+                vocab_start_index, vocab_end_index = get_vocab_range(partition_vocab_size, rank, world_size)
+                loss = ixte_extensions.vocab_parallel_cross_entropy(
+                    output,
+                    labels,
+                    0.0,
+                    world_size,
+                    vocab_start_index,
+                    vocab_end_index,
+                    group
+                )
+            else:
+                loss = tensor_parallel.vocab_parallel_cross_entropy(output.float(), labels)
         
         # [s b] => [b, s]
         loss = loss.transpose(0,1).contiguous()

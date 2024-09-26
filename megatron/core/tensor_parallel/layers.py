@@ -23,6 +23,8 @@ from megatron.core.parallel_state import (
     get_tensor_model_parallel_world_size,
 )
 
+from megatron.core import ixte_extensions
+
 from ..dist_checkpointing.mapping import ShardedStateDict
 from ..transformer.utils import make_sharded_tensors_for_checkpoint
 from ..utils import make_tp_sharded_tensor_for_checkpoint, prepare_input_tensors_for_wgrad_compute
@@ -624,6 +626,7 @@ class ColumnParallelLinear(torch.nn.Module):
         grad_output_buffer: Optional[List[torch.Tensor]] = None,
         is_expert: bool = False,
         tp_comm_buffer_name: str = None,  # Not used
+        is_logits_gemm: bool = False,
     ):
         super(ColumnParallelLinear, self).__init__()
 
@@ -748,8 +751,11 @@ class ColumnParallelLinear(torch.nn.Module):
                 f'{prefix}_extra_state'
             )
         )
+        self.use_ixte = False
+        if is_logits_gemm and config.sequence_parallel and ixte_extensions._USE_IXTE and config.transformer_impl == "transformer_engine":
+            self.use_ixte = True
 
-    def forward(self, input_: torch.Tensor, weight: Optional[torch.Tensor] = None):
+    def forward(self, input_: torch.Tensor, weight: Optional[torch.Tensor] = None, recompute_fwd = False):
         """Forward of ColumnParallelLinear
 
         Args:
@@ -787,6 +793,16 @@ class ColumnParallelLinear(torch.nn.Module):
 
         bias = self.bias if not self.skip_bias_add else None
 
+        if self.use_ixte:
+            output = ixte_extensions.get_logits_linear_func()(
+                input=input_,
+                weight=weight,
+                sequence_parallel=self.sequence_parallel,
+                gradient_accumulation_fusion=self.gradient_accumulation_fusion,
+                tp_group=get_tensor_model_parallel_group(),
+            )
+            output_bias = self.bias if self.skip_bias_add else None
+            return output, output_bias
         if (
             self.async_tensor_model_parallel_allreduce
             or self.sequence_parallel
@@ -970,7 +986,7 @@ class RowParallelLinear(torch.nn.Module):
             )
         )
 
-    def forward(self, input_):
+    def forward(self, input_, ignore_forward=False, recompute_fwd=False):
         """Forward of RowParallelLinear
 
         Args:

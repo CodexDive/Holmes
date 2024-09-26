@@ -7,7 +7,7 @@ import math
 import torch
 
 from megatron.training import get_args
-from megatron.legacy.model import LayerNorm, RMSNorm
+from megatron.legacy.model import LayerNorm, RMSNorm, RMSNormResidual
 from megatron.core.jit import jit_fuser
 
 def init_method_normal(sigma):
@@ -77,3 +77,14 @@ def get_norm(config):
                        sequence_parallel=config.sequence_parallel)
     else:
         raise Exception(f"unsupported norm type '{args.normalization}'.")
+
+
+def get_rmsnorm_residual(config):
+    args = get_args()
+    return RMSNormResidual(
+        config.hidden_size,
+        eps=config.layernorm_epsilon,
+        no_persist_layer_norm=not config.persist_layer_norm,
+        sequence_parallel=config.sequence_parallel,
+        apply_layernorm_1p=args.apply_layernorm_1p,
+        apply_layernorm_rms = True)

@@ -7,7 +7,7 @@ import torch
 from megatron.core import parallel_state
 from megatron.core.transformer.mlp import MLPSubmodules
 from megatron.core.transformer.module import MegatronModule
-from megatron.core.transformer.moe.experts import GroupedMLP, SequentialMLP
+from megatron.core.transformer.moe.experts import GroupedMLP, SequentialMLP, SparseMLP
 from megatron.core.transformer.moe.router import TopKRouter
 from megatron.core.transformer.moe.token_dispatcher import (
     MoEAllGatherTokenDispatcher,
@@ -64,7 +64,9 @@ class MoELayer(BaseMoELayer):
         self.submodules = submodules
         super(MoELayer, self).__init__(config=config, layer_number=layer_number)
         self.router = TopKRouter(config=self.config)
-        if self.config.moe_grouped_gemm:
+        if self.config.moe_block_sparse_gemm:
+            self.experts = SparseMLP(self.num_local_experts, self.config)
+        elif self.config.moe_grouped_gemm:
             self.experts = GroupedMLP(self.num_local_experts, self.config)
         else:
             assert isinstance(self.submodules, MLPSubmodules)
@@ -82,7 +84,7 @@ class MoELayer(BaseMoELayer):
                 f"Unsupported token dispatcher type: {config.moe_token_dispatcher_type}"
             )
 
-    def forward(self, hidden_states: torch.Tensor):
+    def forward(self, hidden_states: torch.Tensor, ignore_last_gemm=False, recompute_fwd=False):
         # process MoE
         scores, indices = self.router(hidden_states)
         (dispatched_input, tokens_per_expert) = self.token_dispatcher.token_permutation(

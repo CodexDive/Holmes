@@ -81,6 +81,7 @@ _GLOBAL_MEMORY_BUFFER = None
 _MOE_AUX_LOSSES_LOGGING_TRACKER = {}
 
 
+
 def get_nccl_options(pg_name, nccl_comm_cfgs):
     """Set the NCCL process group options.
 
@@ -943,6 +944,21 @@ def get_data_parallel_rank(with_context_parallel=False):
         )
     else:
         return 0
+
+
+def is_first_local_rank_in_dp(with_context_parallel=False):
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        node_rank = int(os.environ["GROUP_RANK"])
+        node_rank_tensor = torch.tensor([node_rank], dtype=torch.int32, device=torch.cuda.current_device())
+        current_dp_rank = torch.distributed.get_rank(
+            group=get_data_parallel_group(with_context_parallel=with_context_parallel)
+        )
+        dp_world_size = get_data_parallel_world_size(with_context_parallel=with_context_parallel)
+        node_rank_tensor_ag = torch.empty([dp_world_size,], dtype=torch.int32, device=torch.cuda.current_device())
+        torch.distributed._all_gather_base(node_rank_tensor_ag, node_rank_tensor, group=get_data_parallel_group(with_context_parallel=with_context_parallel))
+        return current_dp_rank == 0 or node_rank_tensor_ag[current_dp_rank] != node_rank_tensor_ag[current_dp_rank - 1]
+    else:
+        return True
 
 
 def get_context_parallel_world_size():

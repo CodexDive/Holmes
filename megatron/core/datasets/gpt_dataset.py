@@ -390,9 +390,8 @@ class GPTDataset(MegatronDataset):
             )
         )
 
-        if not cache_hit and (
-            not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0
-        ):
+        # Only one rank will go in here, see megatron/core/datasets/blended_megatron_dataset_builder.py:build_generic_dataset
+        if not cache_hit:
 
             log_single_rank(
                 logger,

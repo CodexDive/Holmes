@@ -90,11 +90,12 @@ class MLP(MegatronModule):
             is_expert=is_expert,
             tp_comm_buffer_name='fc2',
         )
+        self.has_dropout = config.hidden_dropout > 0.0
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, ignore_last_gemm=False, recompute_fwd=False):
 
         # [s, b, 4 * h/p]
-        intermediate_parallel, bias_parallel = self.linear_fc1(hidden_states)
+        intermediate_parallel, bias_parallel = self.linear_fc1(hidden_states, recompute_fwd=recompute_fwd)
 
         if self.config.bias_activation_fusion:
             if self.activation_func == F.gelu:
@@ -112,16 +113,17 @@ class MLP(MegatronModule):
                 intermediate_parallel = intermediate_parallel + bias_parallel
             if self.config.gated_linear_unit:
 
-                def glu(x):
-                    x = torch.chunk(x, 2, dim=-1)
-                    return self.config.activation_func(x[0]) * x[1]
-
-                intermediate_parallel = glu(intermediate_parallel)
+                # def glu(x):
+                #     x = torch.chunk(x, 2, dim=-1)
+                #     return self.config.activation_func(x[0]) * x[1]
+                # intermediate_parallel = glu(intermediate_parallel)
+                from apex.corex.activations import swiglu
+                intermediate_parallel = swiglu(intermediate_parallel)
             else:
                 intermediate_parallel = self.activation_func(intermediate_parallel)
 
         # [s, b, h]
-        output, output_bias = self.linear_fc2(intermediate_parallel)
+        output, output_bias = self.linear_fc2(intermediate_parallel, ignore_forward=ignore_last_gemm and not self.has_dropout, recompute_fwd=recompute_fwd)
 
         return output, output_bias
 

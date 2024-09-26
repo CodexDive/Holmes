@@ -211,7 +211,7 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.fwd_cuda_rng_state_tracker = get_cuda_rng_tracker().get_states()
 
         with torch.no_grad():
-            outputs = run_function(*args)
+            outputs = run_function(*args, is_recompute_forward=False)
 
         # Divide hidden states across model parallel group and only keep
         # the chunk corresponding to the current rank.
@@ -252,7 +252,7 @@ class CheckpointFunction(torch.autograd.Function):
         # Compute the forward pass.
         detached_inputs = detach_variable(inputs)
         with torch.enable_grad():
-            outputs = ctx.run_function(*detached_inputs)
+            outputs = ctx.run_function(*detached_inputs, is_recompute_forward=True)
 
         # Set the states back to what it was at the start of this function.
         torch.set_rng_state(bwd_cpu_rng_state)

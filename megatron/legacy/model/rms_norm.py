@@ -2,6 +2,7 @@
 
 import torch
 from torch import nn
+from apex.normalization.fused_layer_norm import FusedRMSNormAffineMixedDtypesFunction
 
 class RMSNorm(torch.nn.Module):
 
@@ -20,6 +21,7 @@ class RMSNorm(torch.nn.Module):
         super().__init__()
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(dim))
+        self.normalized_shape = torch.Size((dim,))
 
         setattr(self.weight, 'sequence_parallel', sequence_parallel)
 
@@ -27,5 +29,4 @@ class RMSNorm(torch.nn.Module):
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
 
     def forward(self, x):
-        output = self._norm(x.float()).type_as(x)
-        return output * self.weight
+        return FusedRMSNormAffineMixedDtypesFunction.apply(x, self.weight, self.normalized_shape, self.eps)

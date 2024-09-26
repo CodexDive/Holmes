@@ -21,8 +21,12 @@ from megatron.core.tensor_parallel import get_cuda_rng_tracker
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.utils import make_sharded_tensors_for_checkpoint
+from megatron.core import ixte_extensions
 
-_te_version = packaging.version.Version(version("transformer-engine"))
+if ixte_extensions._USE_IXTE:
+    _te_version = packaging.version.Version(ixte_extensions.te_version())
+else:
+    _te_version = packaging.version.Version(version("transformer-engine"))
 
 
 def _get_extra_te_kwargs(config: TransformerConfig):
@@ -149,11 +153,24 @@ class TELinear(te.pytorch.Linear):
             **extra_kwargs,
         )
 
-    def forward(self, x):
+    def forward(
+        self,
+        x,
+        ignore_forward: bool = False,
+        recompute_fwd: bool = False,
+    ):
         _is_first_microbatch = (
             None if self.disable_parameter_transpose_cache else self.is_first_microbatch
         )
-        out = super().forward(x, is_first_microbatch=_is_first_microbatch)
+        if ixte_extensions._USE_IXTE:
+            out = super().forward(
+                x,
+                is_first_microbatch=_is_first_microbatch,
+                ignore_forward=ignore_forward,
+                recompute_fwd=recompute_fwd,
+            )
+        else:
+            out = super().forward(x, is_first_microbatch=_is_first_microbatch)
         self.is_first_microbatch = False
 
         # TE only returns a tuple when return_bias is True, otherwise
@@ -250,11 +267,23 @@ class TELayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
             **extra_kwargs,
         )
 
-    def forward(self, x):
+    def forward(
+        self,
+        x,
+        ignore_forward: bool = False,
+        recompute_fwd: bool = False,
+    ):
         _is_first_microbatch = (
             None if self.disable_parameter_transpose_cache else self.is_first_microbatch
         )
-        out = super().forward(x, is_first_microbatch=_is_first_microbatch)
+        if ixte_extensions._USE_IXTE:
+            out = super().forward(
+            x,
+            is_first_microbatch=_is_first_microbatch,
+            recompute_fwd=recompute_fwd,
+        )
+        else:
+            out = super().forward(x, is_first_microbatch=_is_first_microbatch)
         self.is_first_microbatch = False
 
         # TE only returns a tuple when return_bias is True, otherwise
@@ -402,7 +431,7 @@ class TEDotProductAttention(te.pytorch.DotProductAttention):
         extra_kwargs = {}
         if _te_version >= packaging.version.Version("0.11.0"):
             extra_kwargs["num_gqa_groups"] = self.config.num_query_groups
-        elif self.config.num_query_groups != self.config.num_attention_heads:
+        if self.config.num_query_groups != self.config.num_attention_heads:
             raise ValueError(
                 f"Transformer Engine v{_te_version} does not support Grouped Query Attention, "
                 f"use a newer version of Transformer Engine. "
@@ -438,6 +467,9 @@ class TEDotProductAttention(te.pytorch.DotProductAttention):
             ), f"Transformer-Engine version ({str(_te_version)}) must be >= 1.2.0 to support sliding window attention."
             extra_kwargs['window_size'] = config.window_size
 
+        if ixte_extensions._USE_IXTE:
+            extra_kwargs["use_alibi"] = config.position_embedding_type == "alibi"
+
         super().__init__(
             num_attention_heads=self.config.num_attention_heads,
             kv_channels=self.config.kv_channels,
@@ -464,6 +496,8 @@ class TEDotProductAttention(te.pytorch.DotProductAttention):
         attn_mask_type: AttnMaskType,
         packed_seq_params: PackedSeqParams = None,
     ):
+        if ixte_extensions._USE_IXTE:
+            return super().forward(query, key, value, attention_mask)
         packed_seq_kwargs = (
             dataclasses.asdict(packed_seq_params) if packed_seq_params is not None else {}
         )

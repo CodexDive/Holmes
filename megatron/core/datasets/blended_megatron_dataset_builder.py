@@ -11,7 +11,8 @@ from megatron.core.datasets.blended_dataset import BlendedDataset
 from megatron.core.datasets.blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from megatron.core.datasets.megatron_dataset import LowLevelDataset, MegatronDataset, MockDataset
 from megatron.core.datasets.utils import Split, normalize
-from megatron.core.parallel_state import get_virtual_pipeline_model_parallel_rank
+from megatron.core.parallel_state import get_virtual_pipeline_model_parallel_rank, is_pipeline_last_stage
+from megatron.core.parallel_state import is_pipeline_first_stage, is_first_local_rank_in_dp
 
 logger = logging.getLogger(__name__)
 
@@ -252,9 +253,9 @@ class BlendedMegatronDatasetBuilder(object):
 
         return mid_level_datasets
 
-    @staticmethod
+    # @staticmethod
     def build_generic_dataset(
-        cls: Union[Type[DistributedDataset], Callable], is_built_on_rank: Callable, *args: Any
+        self, cls: Union[Type[DistributedDataset], Callable], is_built_on_rank: Callable, *args: Any
     ) -> Optional[Union[DistributedDataset, Iterable]]:
         """Build the DistributedDataset
 
@@ -273,12 +274,32 @@ class BlendedMegatronDatasetBuilder(object):
             Optional[Union[DistributedDataset, Iterable]]: The DistributedDataset instantion, the Iterable instantiation, or None
         """
         if torch.distributed.is_initialized():
-            rank = torch.distributed.get_rank()
+            cache_local = getattr(self.config, "do_cache_local")
+            if cache_local:
+                init_first = is_pipeline_first_stage() and is_first_local_rank_in_dp(with_context_parallel=True)
+                init_second = is_pipeline_last_stage() and is_first_local_rank_in_dp(with_context_parallel=True)
+            else:
+                init_first = torch.distributed.get_rank() == 0
+                init_second = False
 
             dataset = None
 
             # First, build on rank 0
-            if rank == 0 and is_built_on_rank():
+            if init_first and is_built_on_rank():
+                try:
+                    dataset = cls(*args)
+                except OSError as err:
+                    log = (
+                        f"Failed to write dataset materials to the data cache directory. "
+                        + f"Please supply a directory to which you have write access via "
+                        + f"the path_to_cache attribute in BlendedMegatronDatasetConfig and "
+                        + f"retry. Refer to the preserved traceback above for more information."
+                    )
+                    raise Exception(log) from err
+
+            torch.distributed.barrier()
+
+            if init_second and is_built_on_rank():
                 try:
                     dataset = cls(*args)
                 except OSError as err:
@@ -293,7 +314,7 @@ class BlendedMegatronDatasetBuilder(object):
             torch.distributed.barrier()
 
             # After, build on other ranks
-            if rank != 0 and is_built_on_rank():
+            if not init_first and not init_second and is_built_on_rank():
                 dataset = cls(*args)
 
             return dataset

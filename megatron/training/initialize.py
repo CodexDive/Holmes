@@ -21,6 +21,7 @@ from megatron.training.checkpointing import load_args_from_checkpoint
 from megatron.training.global_vars import set_global_variables
 from megatron.legacy.model.transformer import bias_dropout_add_fused_train
 from megatron.legacy.model.fused_bias_gelu import bias_gelu
+from megatron.core import ixte_extensions
 
 def initialize_megatron(
     extra_args_provider=None,
@@ -93,9 +94,11 @@ def initialize_megatron(
         # Compile dependencies.
         _compile_dependencies()
 
-        if args.tp_comm_overlap:
+        if args.tp_comm_overlap and not ixte_extensions._USE_IXTE:
            _initialize_tp_communicators()
 
+        if ixte_extensions._USE_IXTE:
+            _initialize_ixte()
         # No continuation function
         return None
 
@@ -108,7 +111,8 @@ def _compile_dependencies():
     # Compile dataset C++ code.
     # =========================
     # TODO: move this to ninja
-    if torch.distributed.get_rank() == 0:
+    # LOCAL_RANK only setted when use torchrun
+    if not torch.distributed.is_initialized() or int(os.environ["LOCAL_RANK"]) == 0:
         start_time = time.time()
         print("> compiling dataset index builder ...")
         from megatron.core.datasets.utils import compile_helpers
@@ -275,6 +279,36 @@ def _init_autoresume():
         torch.distributed.barrier()
         autoresume.init()
         torch.distributed.barrier()
+
+
+def _initialize_ixte():
+    args = get_args()
+    try:
+        import yaml
+    except ImportError:
+        raise RuntimeError("IXTE optimization needs 'yaml' packages")
+    if args.ixte_cfg is not None:
+        with open(args.ixte_cfg, "r") as stream:
+            ixte_cfg = yaml.safe_load(stream)
+    else:
+        ixte_cfg = {}
+
+    # Synchronize with NV args?
+    # if not args.tp_comm_overlap:
+    #     ixte_cfg["tp_overlap_mode"] = 0
+
+    if not args.overlap_p2p_comm:
+        ixte_cfg["pp_delay"] = False
+
+    ixte_cfg["sequence_parallel"] = args.sequence_parallel
+
+    ixte_extensions.initialize_ixte(use_fp8=(args.fp8 is not None), opt_cfgs=ixte_cfg)
+
+    if args.rank == 0:
+        print(
+            f"IXTE optmizing arguments: {ixte_extensions.get_opt_config().dict()}",
+            flush=True,
+        )
 
 
 def _set_random_seed(seed_, data_parallel_random_init=False):

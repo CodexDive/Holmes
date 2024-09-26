@@ -172,8 +172,8 @@ def forward_step(
     if config.timers is not None:
         config.timers('forward-compute', log_level=2).start()
 
-    if is_first_microbatch and hasattr(model, 'set_is_first_microbatch'):
-        model.set_is_first_microbatch()
+    #if is_first_microbatch and hasattr(model, 'set_is_first_microbatch'):
+    #    model.set_is_first_microbatch()
 
     unwrap_output_tensor = False
     if not isinstance(input_tensor, list):
@@ -664,12 +664,9 @@ def forward_backward_pipelining_with_interleaving(
 
     fwd_wait_handles = None
     bwd_wait_handles = None
+    output_tensor = None
 
     for k in range(num_warmup_microbatches):
-
-        if fwd_wait_handles is not None:
-            for req in fwd_wait_handles:
-                req.wait()
 
         # Decide to checkpoint all layers' activations of the current micro-batch
         if max_outstanding_backprops is not None:
@@ -732,6 +729,9 @@ def forward_backward_pipelining_with_interleaving(
                 config=config,
                 overlap_p2p_comm=True,
             )
+            if fwd_wait_handles is not None:
+                for req in fwd_wait_handles:
+                    req.wait()
 
             if (
                 k == (num_warmup_microbatches - 1)
@@ -756,7 +756,6 @@ def forward_backward_pipelining_with_interleaving(
 
                 output_tensor_grads[num_model_chunks - 1].append(output_tensor_grad)
             input_tensors[next_forward_model_chunk_id].append(input_tensor)
-
         deallocate_output_tensor(output_tensor, config.deallocate_pipeline_outputs)
 
     # Run 1F1B in steady state.
@@ -774,11 +773,6 @@ def forward_backward_pipelining_with_interleaving(
             checkpoint_activations_microbatch = None
 
         if config.overlap_p2p_comm:
-            if fwd_wait_handles is not None:
-                for req in fwd_wait_handles:
-                    req.wait()
-
-            deallocate_output_tensor(output_tensor, config.deallocate_pipeline_outputs)
 
             output_tensor = forward_step_helper(forward_k, checkpoint_activations_microbatch)
 
@@ -810,6 +804,10 @@ def forward_backward_pipelining_with_interleaving(
             if k == (num_microbatches_remaining - 1):
                 recv_prev = False
 
+            # Wait bwd communication first
+            if bwd_wait_handles is not None:
+                for req in bwd_wait_handles:
+                    req.wait()
             # Send activation tensor to the next stage and receive activation tensor from the
             # previous stage
             input_tensor, fwd_wait_handles = p2p_communication.send_forward_recv_forward(
@@ -821,9 +819,6 @@ def forward_backward_pipelining_with_interleaving(
             )
             # assert fwd_wait_handles is not None
 
-            if bwd_wait_handles is not None:
-                for req in bwd_wait_handles:
-                    req.wait()
 
             # Backward pass.
             backward_k = k
@@ -849,6 +844,10 @@ def forward_backward_pipelining_with_interleaving(
             else:
                 next_backward_model_chunk_id = get_model_chunk_id(backward_k + 1, forward=False)
 
+            if fwd_wait_handles is not None:
+                for req in fwd_wait_handles:
+                    req.wait()
+            deallocate_output_tensor(output_tensor, config.deallocate_pipeline_outputs)
             output_tensor_grad, bwd_wait_handles = p2p_communication.send_backward_recv_backward(
                 input_tensor_grad,
                 recv_next=recv_next,
@@ -931,7 +930,6 @@ def forward_backward_pipelining_with_interleaving(
         if recv_next:
             output_tensor_grads[next_backward_model_chunk_id].append(output_tensor_grad)
 
-    deallocate_output_tensor(output_tensor, config.deallocate_pipeline_outputs)
 
     # Run cooldown backward passes (flush out pipeline).
     if not forward_only:

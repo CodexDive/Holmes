@@ -165,6 +165,8 @@ class TransformerLayer(MegatronModule, BaseTransformerLayer):
         rotary_pos_emb=None,
         inference_params=None,
         packed_seq_params=None,
+        is_recompute_forward=False,
+        is_recompute_lastlayer=False,
     ):
         # hidden_states: [s, b, h]
 
@@ -181,6 +183,7 @@ class TransformerLayer(MegatronModule, BaseTransformerLayer):
             inference_params=inference_params,
             rotary_pos_emb=rotary_pos_emb,
             packed_seq_params=packed_seq_params,
+            recompute_fwd=is_recompute_forward,
         )
 
         # TODO: could we move `bias_dropout_add_exec_handler` itself
@@ -221,7 +224,11 @@ class TransformerLayer(MegatronModule, BaseTransformerLayer):
         pre_mlp_layernorm_output = self.pre_mlp_layernorm(hidden_states)
 
         # MLP.
-        mlp_output_with_bias = self.mlp(pre_mlp_layernorm_output)
+        mlp_output_with_bias = self.mlp(
+            pre_mlp_layernorm_output,
+            ignore_last_gemm=is_recompute_forward and is_recompute_lastlayer,
+            recompute_fwd=is_recompute_forward,
+        )
 
         # TODO: could we move `bias_dropout_add_exec_handler` itself
         # inside the module provided in the `bias_dropout_add_spec` module?

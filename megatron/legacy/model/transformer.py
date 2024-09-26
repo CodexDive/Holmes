@@ -27,6 +27,7 @@ from megatron.core.tensor_parallel import (
 )
 from megatron.core.parallel_state import get_tensor_model_parallel_group, get_tensor_and_expert_parallel_group
 from megatron.core.jit import jit_fuser
+from megatron.core import ixte_extensions
 
 try:
     from einops import rearrange
@@ -694,7 +695,7 @@ class ParallelAttention(MegatronModule):
                 dim=3)
 
             # [sq, b, ng, np/ng * hn] -> [sq, b, np, hn] -
-            query_layer = query_layer.view(query_layer.size(0), query_layer.size(1), -1, self.hidden_size_per_attention_head)
+            query_layer = query_layer.reshape(query_layer.size(0), query_layer.size(1), -1, self.hidden_size_per_attention_head)
         else:
             # Attention heads [sk, b, h] --> [sk, b, (np * 2 * hn)]
             mixed_kv_layer, _ = self.key_value(encoder_output)
@@ -771,7 +772,8 @@ class ParallelAttention(MegatronModule):
         # ==================================
 
         # expand the key_layer and value_layer [sk, b, ng, hn] -> [sk, b, np, hn]
-        if self.num_attention_heads_per_partition // self.num_query_groups_per_partition > 1:
+        # Flash attention support group attention
+        if self.num_attention_heads_per_partition // self.num_query_groups_per_partition > 1 and not self.use_flash_attn:
             key_layer = key_layer.repeat_interleave(
                 self.num_attention_heads_per_partition // self.num_query_groups_per_partition,
                 dim = 2
@@ -1143,7 +1145,7 @@ class ParallelTransformerLayer(MegatronModule):
                 retriever_output=None,
                 retriever_attn_mask=None,
                 inference_params=None,
-                rotary_pos_emb=None):
+                rotary_pos_emb=None, **kwargs):
 
         # Update the params in case the retro param changes during inference
         # TODO: better redesign with inference param
@@ -1301,7 +1303,7 @@ class NoopTransformerLayer(MegatronModule):
 
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, enc_dec_attn_mask=None,
-                inference_params=None):
+                inference_params=None, **kwargs):
         return hidden_states.clone()
 
 
@@ -1338,20 +1340,27 @@ def _get_num_layers(args, model_type, is_decoder=False):
             else:
                 num_layers = args.decoder_num_layers // num_ranks_in_decoder
         else:
-            assert args.num_layers == args.encoder_num_layers
-            assert args.num_layers % args.transformer_pipeline_model_parallel_size == 0, \
-                'num_layers must be divisible by transformer_pipeline_model_parallel_size'
+            if args.num_layers_per_stage is not None:
+                num_layer_list = args.num_layers_per_stage
+                if args.virtual_pipeline_model_parallel_size != None:
+                    num_layers = num_layer_list[mpu.get_virtual_pipeline_model_parallel_rank() * args.pipeline_model_parallel_size + mpu.get_pipeline_model_parallel_rank()]
+                else:
+                    num_layers = num_layer_list[mpu.get_pipeline_model_parallel_rank()]
+            else:
+                assert args.num_layers == args.encoder_num_layers
+                assert args.num_layers % args.transformer_pipeline_model_parallel_size == 0, \
+                    'num_layers must be divisible by transformer_pipeline_model_parallel_size'
 
-            # When a standalone embedding stage is used, all transformer layers
-            # are divided among pipeline rank >= 1, while on pipeline rank 0,
-            # ranks either contain the input embedding layer (virtual pp rank 0),
-            # or no layers at all (virtual pp rank >= 1).
-            num_layers = (
-                0
-                if args.standalone_embedding_stage
-                and mpu.get_pipeline_model_parallel_rank() == 0 else
-                args.num_layers // args.transformer_pipeline_model_parallel_size
-            )
+                # When a standalone embedding stage is used, all transformer layers
+                # are divided among pipeline rank >= 1, while on pipeline rank 0,
+                # ranks either contain the input embedding layer (virtual pp rank 0),
+                # or no layers at all (virtual pp rank >= 1).
+                num_layers = (
+                    0
+                    if args.standalone_embedding_stage
+                    and mpu.get_pipeline_model_parallel_rank() == 0 else
+                    args.num_layers // args.transformer_pipeline_model_parallel_size
+                )
     else:
         if not is_decoder:
             num_layers = args.encoder_num_layers
@@ -1403,8 +1412,26 @@ class ParallelTransformer(MegatronModule):
 
         # Store activation checkpoiting flag.
         self.recompute_granularity = config.recompute_granularity
-        self.recompute_method = config.recompute_method
-        self.recompute_num_layers = config.recompute_num_layers
+        if args.recompute_method_per_stage != None:
+            if args.virtual_pipeline_model_parallel_size != None:
+                if args.recompute_method_per_stage[mpu.get_virtual_pipeline_model_parallel_rank() * args.pipeline_model_parallel_size + mpu.get_pipeline_model_parallel_rank()] == 0:
+                    self.recompute_method = 'uniform'
+                elif args.recompute_method_per_stage[mpu.get_virtual_pipeline_model_parallel_rank() * args.pipeline_model_parallel_size + mpu.get_pipeline_model_parallel_rank()] == 1:
+                    self.recompute_method = 'block'
+            else:
+                if args.recompute_method_per_stage[mpu.get_pipeline_model_parallel_rank()] == 0:
+                    self.recompute_method = 'uniform'
+                elif args.recompute_method_per_stage[mpu.get_pipeline_model_parallel_rank()] == 1:
+                    self.recompute_method = 'block'
+        else:
+            self.recompute_method = config.recompute_method
+        if args.recompute_num_layers_per_stage != None:
+            if args.virtual_pipeline_model_parallel_size != None:
+                self.recompute_num_layers = args.recompute_num_layers_per_stage[mpu.get_virtual_pipeline_model_parallel_rank() * args.pipeline_model_parallel_size + mpu.get_pipeline_model_parallel_rank()]
+            else:
+                self.recompute_num_layers = args.recompute_num_layers_per_stage[mpu.get_pipeline_model_parallel_rank()]
+        else:
+            self.recompute_num_layers = config.recompute_num_layers
         self.distribute_saved_activations = \
             config.distribute_saved_activations and not config.sequence_parallel
 
@@ -1414,13 +1441,18 @@ class ParallelTransformer(MegatronModule):
         self.transformer_engine_v_0_10 = False
         self.transformer_engine_v_0_11 = False
         self.transformer_engine_v_0_8 = False
+        self.use_ixte = False
         if self.transformer_impl == 'transformer_engine':
             global transformer_engine
             import transformer_engine
             from importlib.metadata import version
             from pkg_resources import packaging
 
-            te_version = packaging.version.Version(version("transformer-engine"))
+            if ixte_extensions._USE_IXTE:
+                te_version = packaging.version.Version(ixte_extensions.te_version())
+                self.use_ixte = True
+            else:
+                te_version = packaging.version.Version(version("transformer-engine"))
             if te_version >= packaging.version.Version("0.8.0"):
                 self.transformer_engine_v_0_8 = True
             if te_version >= packaging.version.Version("0.10.0"):
@@ -1500,10 +1532,14 @@ class ParallelTransformer(MegatronModule):
                     extra_transformer_engine_kwargs["activation"] = "swiglu" if args.swiglu else "gelu"
                 if self.transformer_engine_v_0_11:
                     extra_transformer_engine_kwargs["normalization"] = args.normalization
-                assert config.attention_softmax_in_fp32, "TransformerEngine only supports softmax compute in FP32."
+                if not ixte_extensions._USE_IXTE:
+                    assert config.attention_softmax_in_fp32, "TransformerEngine only supports softmax compute in FP32."
+                if self.use_ixte:
+                    extra_transformer_engine_kwargs["use_alibi"] = args.position_embedding_type == "alibi"
                 assert (
                     (bool(int(os.getenv("NVTE_APPLY_QK_LAYER_SCALING", "0"))) and args.fp16) == config.apply_query_key_layer_scaling
                 ), "Unsupported config for apply_query_key_layer_scaling in TransformerEngine."
+                #num_gqa_groups=config.num_query_groups,
                 return transformer_engine.pytorch.TransformerLayer(
                     config.hidden_size,
                     config.ffn_hidden_size,
@@ -1532,24 +1568,31 @@ class ParallelTransformer(MegatronModule):
                     **extra_transformer_engine_kwargs)
 
         if config.virtual_pipeline_model_parallel_size is not None:
-            assert config.num_layers % config.virtual_pipeline_model_parallel_size == 0, \
-                'num_layers_per_stage must be divisible by ' \
-                'virtual_pipeline_model_parallel_size'
-            assert args.model_type != ModelType.encoder_and_decoder
-            # Number of layers in each model chunk is the number of layers in the stage,
-            # divided by the number of model chunks in a stage.
-            self.num_layers = self.num_layers // config.virtual_pipeline_model_parallel_size
-            # With 8 layers, 2 stages, and 4 model chunks, we want an assignment of
-            # layers to stages like (each list is a model chunk):
-            # Stage 0: [0]  [2]  [4]  [6]
-            # Stage 1: [1]  [3]  [5]  [7]
-            # With 8 layers, 2 stages, and 2 virtual stages, we want an assignment of
-            # layers to stages like (each list is a model chunk):
-            # Stage 0: [0, 1]  [4, 5]
-            # Stage 1: [2, 3]  [6, 7]
-            offset = mpu.get_virtual_pipeline_model_parallel_rank() * (
-                config.num_layers // config.virtual_pipeline_model_parallel_size) + \
-                (mpu.get_pipeline_model_parallel_rank() * self.num_layers)
+            if args.num_layers_per_stage is None:
+                assert config.num_layers % config.virtual_pipeline_model_parallel_size == 0, \
+                    'num_layers_per_stage must be divisible by ' \
+                    'virtual_pipeline_model_parallel_size'
+                assert args.model_type != ModelType.encoder_and_decoder
+                # Number of layers in each model chunk is the number of layers in the stage,
+                # divided by the number of model chunks in a stage.
+                self.num_layers = self.num_layers // config.virtual_pipeline_model_parallel_size
+                # With 8 layers, 2 stages, and 4 model chunks, we want an assignment of
+                # layers to stages like (each list is a model chunk):
+                # Stage 0: [0]  [2]  [4]  [6]
+                # Stage 1: [1]  [3]  [5]  [7]
+                # With 8 layers, 2 stages, and 2 virtual stages, we want an assignment of
+                # layers to stages like (each list is a model chunk):
+                # Stage 0: [0, 1]  [4, 5]
+                # Stage 1: [2, 3]  [6, 7]
+                offset = mpu.get_virtual_pipeline_model_parallel_rank() * (
+                    config.num_layers // config.virtual_pipeline_model_parallel_size) + \
+                    (mpu.get_pipeline_model_parallel_rank() * self.num_layers)
+            else:
+                offset_list = [0] * len(args.num_layers_per_stage)
+                for i in range(len(args.num_layers_per_stage)):
+                    for j in range(i):
+                        offset_list[i] += args.num_layers_per_stage[j]
+                offset = offset_list[mpu.get_virtual_pipeline_model_parallel_rank() * mpu.get_pipeline_model_parallel_world_size() + mpu.get_pipeline_model_parallel_rank()]
         else:
             # Each stage gets a contiguous set of layers.
             if args.model_type == ModelType.encoder_and_decoder and \
@@ -1561,7 +1604,14 @@ class ParallelTransformer(MegatronModule):
                     num_ranks_in_enc = args.pipeline_model_parallel_split_rank
                     offset = (pipeline_rank - num_ranks_in_enc) * self.num_layers
             else:
-                offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
+                if args.num_layers_per_stage is not None:
+                    offset_list = [0] * len(args.num_layers_per_stage)
+                    for i in range(len(args.num_layers_per_stage)):
+                        for j in range(i):
+                            offset_list[i] += args.num_layers_per_stage[j]
+                    offset = offset_list[mpu.get_pipeline_model_parallel_rank()]
+                else:
+                    offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
 
         if self.num_layers == 0:
             # When a standalone embedding stage is used (e.g.,
@@ -1604,6 +1654,10 @@ class ParallelTransformer(MegatronModule):
             def custom_forward(*args, **kwargs):
                 x_, *args = args
                 for index in range(start, end):
+                    # Is recompute last layer
+                    # Network last layer also can be optimized, because vocab gemm always save forward tenor for backward!
+                    if self.transformer_impl == 'transformer_engine' and ixte_extensions._USE_IXTE:
+                        kwargs["is_recompute_lastlayer"] = index == end - 1
                     layer = self._get_layer(index)
                     x_ = layer(x_, *args, **kwargs)
                 return x_

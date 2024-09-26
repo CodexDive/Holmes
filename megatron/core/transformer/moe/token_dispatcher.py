@@ -72,6 +72,7 @@ class MoEAllGatherTokenDispatcher(MoETokenDispatcher):
         assert len(self.local_expert_indices) > 0, "Expected at least one local expert index"
         self.router_topk = config.moe_router_topk
         self.add_bias = config.add_bias_linear
+        self.is_block_sparse_gemm = config.moe_block_sparse_gemm
 
         # self.local_probs: probs of global token assignment to local experts.
         self.local_probs = None
@@ -158,7 +159,10 @@ class MoEAllGatherTokenDispatcher(MoETokenDispatcher):
                 min=self.local_expert_indices[0],
                 max=self.local_expert_indices[-1],
             )
-            tokens_per_expert = tokens_per_expert.cpu().to(torch.long)
+            if self.is_block_sparse_gemm:
+                tokens_per_expert = tokens_per_expert.to(torch.int32)
+            else:
+                tokens_per_expert = tokens_per_expert.cpu().to(torch.long)
 
         # Stage2: permute the tokens locally so that they are grouped by their expert assignment
         # Reshape indices to be compatible with Tensor.gather

@@ -198,6 +198,7 @@ class TransformerBlock(MegatronModule):
                 context_mask,
                 rotary_pos_emb,
                 packed_seq_params,
+                is_recompute_forward,
             ):
                 for index in range(start, end):
                     layer = self._get_layer(index)
@@ -209,6 +210,8 @@ class TransformerBlock(MegatronModule):
                         rotary_pos_emb=rotary_pos_emb,
                         inference_params=None,
                         packed_seq_params=packed_seq_params,
+                        is_recompute_forward=is_recompute_forward,
+                        is_recompute_lastlayer=index == end - 1,
                     )
                 return hidden_states, context
 

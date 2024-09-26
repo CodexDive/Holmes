@@ -8,6 +8,7 @@ from torch import Tensor
 from megatron.core import tensor_parallel
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.transformer.transformer_config import TransformerConfig
+from megatron.core import ixte_extensions
 
 
 class LanguageModelEmbedding(MegatronModule):
@@ -28,7 +29,7 @@ class LanguageModelEmbedding(MegatronModule):
         config: TransformerConfig,
         vocab_size: int,
         max_sequence_length: int,
-        position_embedding_type: Literal['learned_absolute', 'rope'] = 'learned_absolute',
+        position_embedding_type: Literal['learned_absolute', 'rope', 'alibi'] = 'learned_absolute',
         num_tokentypes: int = 0,
     ):
         super().__init__(config=config)
@@ -69,6 +70,7 @@ class LanguageModelEmbedding(MegatronModule):
 
         # Embeddings dropout
         self.embedding_dropout = torch.nn.Dropout(self.config.hidden_dropout)
+        self.use_ixte = ixte_extensions._USE_IXTE and config.transformer_impl == "transformer_engine"
 
     def zero_parameters(self):
         """Zero out all parameters in embedding."""
@@ -115,7 +117,10 @@ class LanguageModelEmbedding(MegatronModule):
 
         # Dropout.
         if self.config.sequence_parallel:
-            embeddings = tensor_parallel.scatter_to_sequence_parallel_region(embeddings)
+            if self.use_ixte:
+                embeddings = tensor_parallel.scatter_to_sequence_parallel_region(embeddings, ixte_extensions.get_embedding_tp_overlap_size())
+            else:
+                embeddings = tensor_parallel.scatter_to_sequence_parallel_region(embeddings)
             # `scatter_to_sequence_parallel_region` returns a view, which prevents
             # the original tensor from being garbage collected. Clone to facilitate GC.
             # Has a small runtime cost (~0.5%).

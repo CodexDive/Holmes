@@ -203,7 +203,7 @@ def pretrain(train_valid_test_dataset_provider,
     # image ... launches.
     global _TRAIN_START_TIME
     start_time_tensor = torch.tensor([_TRAIN_START_TIME],
-                                     dtype=torch.double,
+                                     dtype=torch.float,
                                      device='cuda')
     torch.distributed.all_reduce(start_time_tensor,
                                  op=torch.distributed.ReduceOp.MIN)
@@ -926,7 +926,6 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
         if len(model) == 1:
             config.param_sync_func = config.param_sync_func[0]
     config.finalize_model_grads_func = finalize_model_grads
-
     timers('interval-time', log_level=0).start(barrier=True)
     print_datetime('before the start of training step')
     report_memory_flag = True
