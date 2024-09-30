@@ -1367,7 +1367,18 @@ def _get_num_layers(args, model_type, is_decoder=False):
         else:
             num_layers = args.decoder_num_layers
     return num_layers
-
+def _get_layer_info(args):
+    assert args.hetero_mode == "pp", "Only pipeline parallelism is supported."
+    pipeline_rank = mpu.get_pipeline_model_parallel_rank()
+    pipeline_stages = [item for sublist in args.hetero_pipeline_stages for item in sublist]
+    offset = sum(([0] + pipeline_stages)[: pipeline_rank + 1])
+    num_layers = pipeline_stages[pipeline_rank] 
+    torch.distributed.barrier()
+    for i in range(torch.distributed.get_world_size()):
+        if i == torch.distributed.get_rank():
+            print("pipeline_rank:", pipeline_rank, "offset:", offset, "num_layers:", num_layers, flush=True)
+        torch.distributed.barrier()
+    return offset, num_layers
 
 def _get_layer_type(model_type, default_layer_type, retro_layer_numbers,
                     layer_number):

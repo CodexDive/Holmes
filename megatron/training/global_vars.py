@@ -10,7 +10,8 @@ from megatron.training import dist_signal_handler
 from megatron.core import Timers
 from megatron.training.tokenizer import build_tokenizer
 from .microbatches import build_num_microbatches_calculator
-
+from .microbatches_hetero import build_num_microbatches_calculator_hetero
+from .hetero_context import HeteroContext
 _GLOBAL_ARGS = None
 _GLOBAL_NUM_MICROBATCHES_CALCULATOR = None
 _GLOBAL_TOKENIZER = None
@@ -20,7 +21,7 @@ _GLOBAL_ONE_LOGGER = None
 _GLOBAL_ADLR_AUTORESUME = None
 _GLOBAL_TIMERS = None
 _GLOBAL_SIGNAL_HANDLER = None
-
+_GLOBAL_HETERO_CONTEXT = None
 def get_args():
     """Return arguments."""
     _ensure_var_is_initialized(_GLOBAL_ARGS, 'args')
@@ -78,7 +79,10 @@ def get_timers():
 def get_signal_handler():
     _ensure_var_is_initialized(_GLOBAL_SIGNAL_HANDLER, 'signal handler')
     return _GLOBAL_SIGNAL_HANDLER
-
+def get_hetero_context():
+    """Return heterogenous context."""
+    _ensure_var_is_initialized(_GLOBAL_HETERO_CONTEXT, 'hetero context')
+    return _GLOBAL_HETERO_CONTEXT
 
 def _set_signal_handler():
     global _GLOBAL_SIGNAL_HANDLER
@@ -119,9 +123,12 @@ def _build_num_microbatches_calculator(args):
     _ensure_var_is_not_initialized(_GLOBAL_NUM_MICROBATCHES_CALCULATOR,
                                    'num microbatches calculator')
 
-    _GLOBAL_NUM_MICROBATCHES_CALCULATOR = build_num_microbatches_calculator(
-        args)
-
+    if args.hetero_mode != "dp":
+        _GLOBAL_NUM_MICROBATCHES_CALCULATOR = build_num_microbatches_calculator(
+            args)
+    else:
+        _GLOBAL_NUM_MICROBATCHES_CALCULATOR = build_num_microbatches_calculator_hetero(
+            args)
 
 def _build_tokenizer(args):
     """Initialize tokenizer."""
@@ -225,7 +232,12 @@ def _set_timers(args):
     _ensure_var_is_not_initialized(_GLOBAL_TIMERS, 'timers')
     _GLOBAL_TIMERS = Timers(args.timing_log_level, args.timing_log_option)
 
-
+def set_hetero_context(args):
+    """Initialize heterogenous context."""
+    global _GLOBAL_HETERO_CONTEXT
+    _ensure_var_is_not_initialized(_GLOBAL_HETERO_CONTEXT, 'hetero context')
+    _GLOBAL_HETERO_CONTEXT = HeteroContext(args)
+    
 def _ensure_var_is_initialized(var, name):
     """Make sure the input variable is not None."""
     assert var is not None, '{} is not initialized.'.format(name)
