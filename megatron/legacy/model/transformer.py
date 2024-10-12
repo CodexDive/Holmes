@@ -1348,8 +1348,8 @@ def _get_num_layers(args, model_type, is_decoder=False):
                     num_layers = num_layer_list[mpu.get_pipeline_model_parallel_rank()]
             else:
                 assert args.num_layers == args.encoder_num_layers
-                assert args.num_layers % args.transformer_pipeline_model_parallel_size == 0, \
-                    'num_layers must be divisible by transformer_pipeline_model_parallel_size'
+                #assert args.num_layers % args.transformer_pipeline_model_parallel_size == 0, \
+                #    'num_layers must be divisible by transformer_pipeline_model_parallel_size'
 
                 # When a standalone embedding stage is used, all transformer layers
                 # are divided among pipeline rank >= 1, while on pipeline rank 0,
@@ -1622,7 +1622,10 @@ class ParallelTransformer(MegatronModule):
                             offset_list[i] += args.num_layers_per_stage[j]
                     offset = offset_list[mpu.get_pipeline_model_parallel_rank()]
                 else:
-                    offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
+                    if args.hetero_mode != "pp":
+                        offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
+                    else:
+                        offset, self.num_layers = _get_layer_info(args)   
 
         if self.num_layers == 0:
             # When a standalone embedding stage is used (e.g.,
