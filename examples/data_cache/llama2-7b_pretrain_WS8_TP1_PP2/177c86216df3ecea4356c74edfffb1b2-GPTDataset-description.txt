@@ -1,0 +1,30 @@
+{
+    "class": "GPTDataset",
+    "dataset_path": "/wangfangyu/test/megatron-mx/Megatron-LM/data/llama/oscar/my-llama_text_document",
+    "num_samples": 102400,
+    "index_split": "train",
+    "random_seed": 1024,
+    "sequence_length": 4096,
+    "split": "949,50,1",
+    "split_matrix": [
+        [
+            0,
+            0.949
+        ],
+        [
+            0.949,
+            0.999
+        ],
+        [
+            0.999,
+            1.0
+        ]
+    ],
+    "tokenizer": {
+        "class": "_Llama2Tokenizer",
+        "tokenizer_path": [
+            "/wangfangyu/test/megatron-mx/Megatron-LM/data/llama/tokenizer.model"
+        ],
+        "vocab_extra_ids": "0"
+    }
+}
