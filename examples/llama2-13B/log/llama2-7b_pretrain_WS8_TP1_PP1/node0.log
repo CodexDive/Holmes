@@ -1,0 +1,238 @@
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "../pretrain_llama.py", line 9, in <module>
+  File "../pretrain_llama.py", line 9, in <module>
+        from megatron.training import get_argsfrom megatron.training import get_args
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+    from .global_vars import get_args    
+from .global_vars import get_args
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+        from megatron.core import Timersfrom megatron.core import Timers
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+        import megatron.core.tensor_parallelimport megatron.core.tensor_parallel
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+        from .cross_entropy import vocab_parallel_cross_entropyfrom .cross_entropy import vocab_parallel_cross_entropy
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+        from megatron.core.parallel_state import (from megatron.core.parallel_state import (
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "../pretrain_llama.py", line 9, in <module>
+Traceback (most recent call last):
+  File "../pretrain_llama.py", line 9, in <module>
+  File "../pretrain_llama.py", line 9, in <module>
+  File "../pretrain_llama.py", line 9, in <module>
+  File "../pretrain_llama.py", line 9, in <module>
+  File "../pretrain_llama.py", line 9, in <module>
+        from megatron.training import get_argsfrom megatron.training import get_args
+
+      File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+from megatron.training import get_args  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+
+            from megatron.training import get_args  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+from megatron.training import get_argsfrom megatron.training import get_args
+
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/__init__.py", line 5, in <module>
+        from .global_vars import get_args    from .global_vars import get_args
+from .global_vars import get_args
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+      File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+      File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+    from .global_vars import get_argsfrom .global_vars import get_argsfrom .global_vars import get_args
+
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/training/global_vars.py", line 10, in <module>
+        from megatron.core import Timers
+from megatron.core import Timers          File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+from megatron.core import Timers
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+        from megatron.core import Timersfrom megatron.core import Timers
+
+from megatron.core import Timers  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/__init__.py", line 1, in <module>
+        import megatron.core.tensor_parallelimport megatron.core.tensor_parallel
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+    import megatron.core.tensor_parallel
+            import megatron.core.tensor_parallel  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+
+import megatron.core.tensor_parallelimport megatron.core.tensor_parallel
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/__init__.py", line 1, in <module>
+        from .cross_entropy import vocab_parallel_cross_entropy    from .cross_entropy import vocab_parallel_cross_entropy
+from .cross_entropy import vocab_parallel_cross_entropy
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+    from .cross_entropy import vocab_parallel_cross_entropy
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+        from .cross_entropy import vocab_parallel_cross_entropy
+from .cross_entropy import vocab_parallel_cross_entropy
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/tensor_parallel/cross_entropy.py", line 5, in <module>
+    from megatron.core.parallel_state import (
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+    from megatron.core.parallel_state import (    
+    from megatron.core.parallel_state import (  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+
+from megatron.core.parallel_state import (        from megatron.core.parallel_state import (  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+
+
+from megatron.core.parallel_state import (  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/parallel_state.py", line 9, in <module>
+        from .hetnet import new_process_groupfrom .hetnet import new_process_group
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+    from tools.config import nccl_config
+      File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+from tools.config import nccl_config
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+    with open('config.json', 'r') as file:
+    with open('config.json', 'r') as file:FileNotFoundError
+: [Errno 2] No such file or directory: 'config.json'FileNotFoundError
+: [Errno 2] No such file or directory: 'config.json'
+            from .hetnet import new_process_groupfrom .hetnet import new_process_groupfrom .hetnet import new_process_group
+
+
+      File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+from .hetnet import new_process_group  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+
+    from .hetnet import new_process_group
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+      File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+from .hetnet import new_process_group
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/megatron/core/hetnet.py", line 4, in <module>
+    from tools.config import nccl_config
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+                from tools.config import nccl_configfrom tools.config import nccl_configfrom tools.config import nccl_configfrom tools.config import nccl_config
+
+    from tools.config import nccl_config
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+  File "/wangfangyu/test/megatron-mx/Megatron-LM/tools/config.py", line 3, in <module>
+    with open('config.json', 'r') as file:
+FileNotFoundError: [Errno 2] No such file or directory: 'config.json'    with open('config.json', 'r') as file:
+    
+with open('config.json', 'r') as file:
+FileNotFoundError        : with open('config.json', 'r') as file:with open('config.json', 'r') as file:FileNotFoundError
+    [Errno 2] No such file or directory: 'config.json'
+: with open('config.json', 'r') as file:
+
+FileNotFoundError[Errno 2] No such file or directory: 'config.json'FileNotFoundError
+: : [Errno 2] No such file or directory: 'config.json'FileNotFoundError
+[Errno 2] No such file or directory: 'config.json'
+: [Errno 2] No such file or directory: 'config.json'
+ERROR:torch.distributed.elastic.multiprocessing.api:failed (exitcode: 1) local_rank: 0 (pid: 6477) of binary: /opt/conda/bin/python
+Traceback (most recent call last):
+  File "/opt/conda/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/opt/conda/lib/python3.8/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 346, in wrapper
+    return f(*args, **kwargs)
+  File "/opt/conda/lib/python3.8/site-packages/torch/distributed/run.py", line 794, in main
+    run(args)
+  File "/opt/conda/lib/python3.8/site-packages/torch/distributed/run.py", line 785, in run
+    elastic_launch(
+  File "/opt/conda/lib/python3.8/site-packages/torch/distributed/launcher/api.py", line 134, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/opt/conda/lib/python3.8/site-packages/torch/distributed/launcher/api.py", line 250, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+../pretrain_llama.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 6478)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[2]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 2 (local_rank: 2)
+  exitcode  : 1 (pid: 6479)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[3]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 3 (local_rank: 3)
+  exitcode  : 1 (pid: 6480)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[4]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 4 (local_rank: 4)
+  exitcode  : 1 (pid: 6481)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[5]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 5 (local_rank: 5)
+  exitcode  : 1 (pid: 6482)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[6]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 6 (local_rank: 6)
+  exitcode  : 1 (pid: 6483)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[7]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 7 (local_rank: 7)
+  exitcode  : 1 (pid: 6484)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2024-10-14_08:00:24
+  host      : localhost
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 6477)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

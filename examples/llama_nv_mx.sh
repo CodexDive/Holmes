@@ -6,7 +6,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export NCCL_IB_GID_INDEX=3
 #export MCCL_DEBUG=WARN
 #export GLOO_SOCKET_IFNAME="bond4"
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=4,5,6,7
 #export TORCH_CUDA_ARCH_LIST=Ampere
 #export MAX_JOBS=20
 #export LD_LIBRARY_PATH=/software/home/lyt/yidian_blas:$LD_LIBRARY_PATH
@@ -58,20 +58,20 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 # Distributed training variables
 NNODES=2
-GPUS_PER_NODE=8
+GPUS_PER_NODE=4
 GPU_NUM=$((${GPUS_PER_NODE}*${NNODES}))
 WORLD_SIZE=$((${GPUS_PER_NODE}*${NNODES}))
 NODE_RANK=0
 MASTER_PORT=12453
 MASTER_ADDR=10.107.204.66
-
+NODE_TYPE=a100
 # Parallelism variables
 TP=1
-PP=4
+PP=2
 DP=$((${GPU_NUM}/${TP}/${PP}))
 
 # Network size variables
-MODEL_SIZE=13
+MODEL_SIZE=7
 
 if   [ ${MODEL_SIZE} == 7 ];   then HIDDEN_SIZE=4096;  NUM_HEAD=32; NUM_QUERY_GROUP=32; NUM_LAYERS=32; FFN_HIDDEN_SIZE=11008; NORM_EPS=1e-5;
 elif [ ${MODEL_SIZE} == 13 ];  then HIDDEN_SIZE=5120;  NUM_HEAD=40; NUM_QUERY_GROUP=40; NUM_LAYERS=40; FFN_HIDDEN_SIZE=13824; NORM_EPS=1e-5;
@@ -86,8 +86,8 @@ MAX_SEQ_LEN=4096
 MAX_POSITION_EMBEDDINGS=4096
 
 # Paths
-BASE_PATH=./llama2-13B
-SRC_PATH=../pretrain_llama.py
+BASE_PATH=./llama2-7B
+SRC_PATH=./pretrain_llama.py
 
 LOG_NAME=llama2-7b_pretrain_WS${WORLD_SIZE}_TP${TP}_PP${PP}
 LOG_PATH=${BASE_PATH}/log/${LOG_NAME}/node${NODE_RANK}.log
@@ -115,6 +115,13 @@ LAUNCHER=" \
        --master_addr ${MASTER_ADDR} \
        --master_port ${MASTER_PORT} \
        "
+
+HETERO_ARGS="
+    --hetero-mode pp \
+    --hetero-current-device-type $NODE_TYPE \
+    --hetero-device-types a100 mx \
+    --hetero-pipeline-stages 1 17 1 15 \
+ "
 
 #LAUNCHER=" \
 #       torchrun \
@@ -170,11 +177,13 @@ NETWORK_SIZE_ARGS=" \
        --sequence-parallel \
        --use-flash-attn \
        --transformer-impl local \
-       --recompute-granularity full \
-       --recompute-method block \
-       --recompute-num-layers 1 \
-
+       --num-workers 2 \
+       --timing-log-level 2 \
+       --log-throughput \
        "
+#       --recompute-granularity full \
+#       --recompute-method block \
+#       --recompute-num-layers 1 \
 
 LOGGING_ARGS=" \
        --log-timers-to-tensorboard \
@@ -251,6 +260,7 @@ CMD="${LAUNCHER} \
        ${DISTRIBUTED_ARGS} \
        ${NETWORK_SIZE_ARGS} \
        ${LOGGING_ARGS} \
+       ${HETERO_ARGS}
        ${REGULATIZATION_ARGS} \
        ${TRAINING_ARGS} \
        ${RECOMPUTE_ARGS} \

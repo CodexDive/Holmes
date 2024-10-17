@@ -60,6 +60,15 @@ def get_num_layers_to_build(config: TransformerConfig) -> int:
         args = get_args()
         if args.pipline_num_layers_list is not None:
             num_layers_to_build = args.pipline_num_layers_list[parallel_state.get_pipeline_model_parallel_rank()]
+        
+        else:
+            num_layers_to_build = num_layers_per_pipeline_rank
+        if config.hetero_mode == "pp":
+            pipeline_rank = parallel_state.get_pipeline_model_parallel_rank()
+            pipeline_stages = [
+                item for sublist in config.hetero_pipeline_stages for item in sublist
+            ]
+            num_layers_to_build = pipeline_stages[pipeline_rank]
         else:
             num_layers_to_build = num_layers_per_pipeline_rank
 
