@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Runs the "345M" parameter model
-
+export XPU_FORCE_USERMODE_LAUNCH=1
+export CUDART_DUMMY_REGISTER=1 
+export BKCL_XLINK_C2C=1 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 GPUS_PER_NODE=8
@@ -12,10 +14,10 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
-CHECKPOINT_PATH=<Specify path>
-VOCAB_FILE=<Specify path to file>/gpt2-vocab.json
-MERGE_FILE=<Specify path to file>/gpt2-merges.txt
-DATA_PATH=<Specify path and file prefix>_text_document
+CHECKPOINT_PATH=./checkpoint
+VOCAB_FILE=./data/gpt2-vocab.json
+MERGE_FILE=./data/gpt2-merges.txt
+DATA_PATH=./data/my-gpt2_text_document
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -41,7 +43,8 @@ GPT_ARGS="
     --weight-decay 1e-2 \
     --lr-warmup-fraction .01 \
     --clip-grad 1.0 \
-    --fp16
+    --fp16 \
+    --attention-softmax-in-fp32 \
 "
 
 DATA_ARGS="

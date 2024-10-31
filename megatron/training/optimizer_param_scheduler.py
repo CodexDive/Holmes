@@ -136,7 +136,6 @@ class OptimizerParamScheduler(object):
             param_group['lr'] = new_lr * param_group.get('lr_mult', 1.0)
             param_group['weight_decay'] = new_wd * param_group.get('wd_mult', 1.0)
 
-
     def state_dict(self):
         state_dict = {
             'max_lr': self.max_lr,

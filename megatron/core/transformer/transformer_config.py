@@ -41,9 +41,11 @@ class TransformerConfig(ModelParallelConfig):
     num_attention_heads if not provided."""
 
     hidden_dropout: float = 0.1
+
     """Dropout probability for transformer hidden state."""
 
     attention_dropout: float = 0.1
+   
     """Post attention dropout probability."""
 
     fp32_residual_connection: bool = False

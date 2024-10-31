@@ -290,7 +290,6 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
         torch.distributed.all_reduce(
             self.found_inf, op=torch.distributed.ReduceOp.MAX, group=self.get_model_parallel_group()
         )
-
         # Check for nan.
         found_inf_flag = self.found_inf.item() > 0
 
@@ -298,7 +297,6 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
     @torch.no_grad()
     def step(self):
-
         timers = self.config.timers
 
         # Copy gradients from model params to main params.
@@ -635,7 +633,6 @@ class FP32Optimizer(MegatronOptimizer):
     def step(self):
         """Clip gradients (if needed) and step the base optimizer.
         Always return successful since there is no overflow."""
-
         timers = self.config.timers
 
         # Copy main_grads to grads.
@@ -689,6 +686,19 @@ class FP32Optimizer(MegatronOptimizer):
 
     def load_state_dict(self, state_dict):
         self.optimizer.load_state_dict(state_dict)
+    def sharded_state_dict(
+        self, model_sharded_state_dict: ShardedStateDict, is_loading: bool = False
+    ):
+        if is_loading:
+            self.init_state_fn(self.optimizer)
+
+        state_dict = self.state_dict()
+        id_to_sharded_param_map = get_param_id_to_sharded_param_map(
+            model_sharded_state_dict, self.get_parameters()
+        )
+        optim_state_to_sharding_state(state_dict, id_to_sharded_param_map)
+
+        return state_dict
 
 
 class ChainedOptimizer(MegatronOptimizer):

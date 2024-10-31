@@ -1358,7 +1358,18 @@ def _get_num_layers(args, model_type, is_decoder=False):
         else:
             num_layers = args.decoder_num_layers
     return num_layers
-
+def _get_layer_info(args):
+    assert args.hetero_mode == "pp", "Only pipeline parallelism is supported."
+    pipeline_rank = mpu.get_pipeline_model_parallel_rank()
+    pipeline_stages = [item for sublist in args.hetero_pipeline_stages for item in sublist]
+    offset = sum(([0] + pipeline_stages)[: pipeline_rank + 1])
+    num_layers = pipeline_stages[pipeline_rank] 
+    torch.distributed.barrier()
+    for i in range(torch.distributed.get_world_size()):
+        if i == torch.distributed.get_rank():
+            print("pipeline_rank:", pipeline_rank, "offset:", offset, "num_layers:", num_layers, flush=True)
+        torch.distributed.barrier()
+    return offset, num_layers
 
 def _get_layer_type(model_type, default_layer_type, retro_layer_numbers,
                     layer_number):
@@ -1536,6 +1547,8 @@ class ParallelTransformer(MegatronModule):
                 'num_layers_per_stage must be divisible by ' \
                 'virtual_pipeline_model_parallel_size'
             assert args.model_type != ModelType.encoder_and_decoder
+            assert args.hetero_mode != "pp", \
+                "Heterogenous pipeline parallelism is not supported for virtual pipeline model parallel."
             # Number of layers in each model chunk is the number of layers in the stage,
             # divided by the number of model chunks in a stage.
             self.num_layers = self.num_layers // config.virtual_pipeline_model_parallel_size
@@ -1554,6 +1567,8 @@ class ParallelTransformer(MegatronModule):
             # Each stage gets a contiguous set of layers.
             if args.model_type == ModelType.encoder_and_decoder and \
                     mpu.get_pipeline_model_parallel_world_size() > 1:
+                assert args.hetero_mode != "pp", \
+                    "Heterogenous pipeline parallelism is not supported for encoder-decoder models."
                 pipeline_rank = mpu.get_pipeline_model_parallel_rank()
                 if layer_type == LayerType.encoder:
                     offset = pipeline_rank * self.num_layers
@@ -1561,7 +1576,14 @@ class ParallelTransformer(MegatronModule):
                     num_ranks_in_enc = args.pipeline_model_parallel_split_rank
                     offset = (pipeline_rank - num_ranks_in_enc) * self.num_layers
             else:
-                offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
+                print("---------here---------")
+                if args.hetero_mode != "pp":
+                    print("--------here1----------")
+                    offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
+                else:
+                    offset, self.num_layers = _get_layer_info(args)
+                    print("offset",offset)
+                    print("num_layers",self.num_layers)              
 
         if self.num_layers == 0:
             # When a standalone embedding stage is used (e.g.,
@@ -1593,6 +1615,7 @@ class ParallelTransformer(MegatronModule):
             # Final layer norm before output.
             self.final_norm = get_norm(config)
 
+    
     def _get_layer(self, layer_number):
         return self.layers[layer_number]
 

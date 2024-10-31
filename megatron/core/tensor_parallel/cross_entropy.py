@@ -17,6 +17,7 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
 
         # Maximum value along vocab dimension across all GPUs.
         logits_max = torch.max(vocab_parallel_logits, dim=-1)[0]
+
         torch.distributed.all_reduce(
             logits_max, op=torch.distributed.ReduceOp.MAX, group=get_tensor_model_parallel_group()
         )
@@ -51,7 +52,6 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
             op=torch.distributed.ReduceOp.SUM,
             group=get_tensor_model_parallel_group(),
         )
-
         # Sum of exponential of logits along vocab dimension across all GPUs.
         exp_logits = vocab_parallel_logits
         torch.exp(vocab_parallel_logits, out=exp_logits)
