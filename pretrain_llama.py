@@ -60,8 +60,8 @@ def model_provider(pre_process=True, post_process=True):
     """
 
     args = get_args()
-    use_te = args.transformer_impl == "transformer_engine"
-    #use_te = args.transformer_impl == "local"
+    #use_te = args.transformer_impl == "transformer_engine"
+    use_te = args.transformer_impl == "local"
     
 
     print_rank_0('building LLaMA model ...')

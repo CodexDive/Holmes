@@ -2,12 +2,12 @@
 
 # Runs the "340M" parameter model (Bert - Large)
 
-export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
+export CUDA_VISIBLE_DEVICES="4,5,6,7"
 GPUS_PER_NODE=`echo "$CUDA_VISIBLE_DEVICES" | awk -F, '{print NF}'`
 
 # Change for multinode config
 MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
-MASTER_PORT=${MASTER_PORT:-9999}
+MASTER_PORT=${MASTER_PORT:-9967}
 NUM_NODES=${1:-1}
 NODE_RANK=${2:-0}
 WORLD_SIZE=$(($GPUS_PER_NODE*$NUM_NODES))
@@ -30,7 +30,7 @@ DISTRIBUTED_ARGS=(
 
 LLAMA_MODEL_ARGS=(
     --num-layers 16 # 32
-    --hidden-size 4096 # 4096
+    --hidden-size 1024 # 4096
     --ffn-hidden-size 11008 # 11008
     --num-attention-heads 32 # 32
     --seq-length 4096
@@ -58,6 +58,7 @@ TRAINING_ARGS=(
     --use-mcore-models
     --tokenizer-model $TOKENIZER_PATH/tokenizer.model
     --tokenizer-type Llama2Tokenizer
+    --normalization RMSNorm
     --disable-bias-linear
     --no-masked-softmax-fusion
     --attention-softmax-in-fp32
@@ -72,13 +73,12 @@ TRAINING_ARGS=(
     --attention-dropout 0
     --hidden-dropout 0
     --log-throughput
-    --transformer-impl local
 )
 
 
 MODEL_PARALLEL_ARGS=(
     --tensor-model-parallel-size 1
-    --pipeline-model-parallel-size 8
+    --pipeline-model-parallel-size 2
     --use-distributed-optimizer
     --overlap-grad-reduce
     --overlap-param-gather
