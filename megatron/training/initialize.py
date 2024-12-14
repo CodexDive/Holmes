@@ -236,12 +236,16 @@ def _initialize_distributed():
                 args.local_rank = device
             torch.cuda.set_device(device)
         # Call the init process
+        print("[rank{}]start init process group, backend: {}, world_size: {}, timeout: {}\n".format(
+            args.rank, args.distributed_backend, args.world_size, args.distributed_timeout_minutes
+        ))
         torch.distributed.init_process_group(
             backend=args.distributed_backend,
             world_size=args.world_size,
             rank=args.rank,
             timeout=timedelta(minutes=args.distributed_timeout_minutes),
         )
+        print("[rank{}]end init process group\n".format(args.rank))
     if args.hetero_mode is not None:
         # Build the heterogenous context after torch.distributed is initialized and
         # before model parallel is initialized.
@@ -264,7 +268,9 @@ def _initialize_distributed():
                 distributed_timeout_minutes=args.distributed_timeout_minutes,
                 nccl_communicator_config_path=args.nccl_communicator_config_path,
                 hetero_mode=args.hetero_mode,
-                use_hetnex=args.use_hetnet
+                use_hetnex=args.use_hetnet,
+                cross_distributed_backend=args.cross_distributed_backend,
+                local_distributed_backend=args.local_distributed_backend
             )
             if args.rank == 0:
                 print(

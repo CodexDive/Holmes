@@ -296,7 +296,7 @@ def _communicate(
             requires_grad=True,
             device=torch.cuda.current_device(),
             dtype=config.pipeline_dtype,
-        )
+        ).to("cpu")
     if recv_next:
         if config.pipeline_dtype is None:
             raise RuntimeError("dtype must be provided if recv_next is True")
@@ -310,7 +310,11 @@ def _communicate(
             requires_grad=True,
             device=torch.cuda.current_device(),
             dtype=config.pipeline_dtype,
-        )
+        ).to("cpu")
+    if tensor_send_prev is not None:
+        tensor_send_prev = tensor_send_prev.to("cpu")
+    if tensor_send_next is not None:
+        tensor_send_next = tensor_send_next.to("cpu")
 
     # Send tensors in both the forward and backward directions as appropriate.
     if config.use_ring_exchange_p2p:
@@ -326,6 +330,7 @@ def _communicate(
     else:
         p2p_func = _p2p_ops
 
+    # TODO: use p2p_func
     reqs = p2p_func(
         tensor_send_prev=tensor_send_prev,
         tensor_recv_prev=tensor_recv_prev,
@@ -343,6 +348,10 @@ def _communicate(
         # To protect against race condition when using batch_isend_irecv().
         # User should assert that we have a modern enough PyTorch to not need this
         torch.cuda.synchronize()
+    if recv_prev:
+        tensor_recv_prev = tensor_recv_prev.cuda()
+    if recv_next:
+        tensor_recv_next = tensor_recv_next.cuda()
     return tensor_recv_prev, tensor_recv_next, reqs
 
 
