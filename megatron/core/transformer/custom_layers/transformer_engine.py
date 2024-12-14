@@ -21,10 +21,9 @@ from megatron.core.tensor_parallel import get_cuda_rng_tracker
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.utils import make_sharded_tensors_for_checkpoint
-
 _te_version = packaging.version.Version(version("transformer-engine"))
 
-
+from megatron.legacy.model import RMSNorm
 def _get_extra_te_kwargs(config: TransformerConfig):
     extra_transformer_engine_kwargs = {
         "params_dtype": config.params_dtype,
@@ -61,16 +60,19 @@ class TENorm:
                 **_get_extra_te_kwargs(config),
             )
         elif config.normalization == "RMSNorm":
-            assert hasattr(
-                te.pytorch, "RMSNorm"
-            ), "Transformer-Engine >= v0.11 required to use this feature"
-            instance = te.pytorch.RMSNorm(
-                hidden_size=hidden_size,
-                eps=eps,
-                sequence_parallel=config.sequence_parallel,
-                zero_centered_gamma=config.layernorm_zero_centered_gamma,
-                **_get_extra_te_kwargs(config),
-            )
+            #assert hasattr(
+            #    te.pytorch, "RMSNorm"
+            #), "Transformer-Engine >= v0.11 required to use this feature"
+            #instance = te.pytorch.RMSNorm(
+            #    hidden_size=hidden_size,
+            #    eps=eps,
+            #    sequence_parallel=config.sequence_parallel,
+            #    zero_centered_gamma=config.layernorm_zero_centered_gamma,
+            #    **_get_extra_te_kwargs(config),
+            #)
+            instance = RMSNorm(dim=config.hidden_size,
+                               eps=config.layernorm_epsilon,
+                               sequence_parallel=config.sequence_parallel)
         else:
             raise Exception('Only LayerNorm and RMSNorm are curently supported')
 

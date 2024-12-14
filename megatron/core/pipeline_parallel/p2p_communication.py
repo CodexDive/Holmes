@@ -343,7 +343,6 @@ def _communicate(
         # To protect against race condition when using batch_isend_irecv().
         # User should assert that we have a modern enough PyTorch to not need this
         torch.cuda.synchronize()
-
     return tensor_recv_prev, tensor_recv_next, reqs
 
 

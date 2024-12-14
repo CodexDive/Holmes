@@ -32,6 +32,7 @@ from megatron.training.initialize import write_args_to_tensorboard
 from megatron.training.initialize import set_jit_fusion_options
 from megatron.training.optimizer_param_scheduler import OptimizerParamScheduler
 from megatron.legacy.data.data_samplers import build_pretraining_data_loader
+from megatron.legacy.data.data_samplers_hetero import build_pretraining_data_loader_hetero
 from megatron.core.transformer.moe.moe_utils import track_moe_metrics
 from megatron.core.pipeline_parallel import get_forward_backward_func
 
@@ -462,7 +463,7 @@ def get_optimizer_param_scheduler(optimizer):
     else:
         raise Exception(
             'either train-iters or train-samples should be provided.')
-
+            
     opt_param_scheduler = OptimizerParamScheduler(
         optimizer,
         init_lr=args.lr_warmup_init,
@@ -535,7 +536,6 @@ def train_step(forward_step_func, data_iterator,
     for model_chunk in model:
         model_chunk.zero_grad_buffer()
     optimizer.zero_grad()
-
     # Forward pass.
     forward_backward_func = get_forward_backward_func()
     losses_reduced = forward_backward_func(
@@ -569,9 +569,16 @@ def train_step(forward_step_func, data_iterator,
 
     # Update learning rate.
     if update_successful:
-        increment = get_num_microbatches() * \
-                    args.micro_batch_size * \
-                    args.data_parallel_size
+        if args.hetero_mode != "dp":
+            increment = get_num_microbatches() * \
+                        args.micro_batch_size * \
+                        args.data_parallel_size
+        else:
+            micro_batch_for_all_data_parallel = sum(map(lambda x, y: x * y, 
+                                                        args.hetero_micro_batch_sizes,
+                                                        args.hetero_data_parallel_splits))
+            increment = get_num_microbatches() * \
+                        micro_batch_for_all_data_parallel
         opt_param_scheduler.step(increment=increment)
         skipped_iter = 0
     else:
@@ -658,9 +665,14 @@ def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_r
         'optimizer']
 
     # Calculate batch size.
-    batch_size = args.micro_batch_size * args.data_parallel_size * \
-        get_num_microbatches()
-
+    if args.hetero_mode != "dp":
+        batch_size = args.micro_batch_size * args.data_parallel_size * \
+            get_num_microbatches()
+    else:
+        micro_batch_for_all_data_parallel = sum(map(lambda x, y: x * y, 
+                                                    args.hetero_micro_batch_sizes,
+                                                    args.hetero_data_parallel_splits))
+        batch_size = micro_batch_for_all_data_parallel * get_num_microbatches()
     # Track app tag & app tag ID
     if one_logger:
         job_name = os.environ.get('SLURM_JOB_NAME', None)
@@ -757,6 +769,8 @@ def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_r
 
         throughput = num_floating_point_operations(args, batch_size) / (
             elapsed_time_per_iteration * 10**12 * args.world_size)
+        token_per_second = int(args.seq_length) \
+            * int(args.global_batch_size) / elapsed_time_per_iteration
         if args.log_timers_to_tensorboard:
             if writer:
                 writer.add_scalar('iteration-time',
@@ -771,6 +785,8 @@ def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_r
             args.consumed_train_samples)
         log_string += ' elapsed time per iteration (ms): {:.1f} |'.format(
             elapsed_time_per_iteration * 1000.0)
+        log_string += ' throughput (token/sec/GPU) : {:.1f} |'.format(
+            token_per_second / args.world_size)
         if args.log_throughput:
             log_string += f' throughput per GPU (TFLOP/s/GPU): {throughput:.1f} |'
             if args.log_timers_to_tensorboard:
@@ -994,10 +1010,16 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                        opt_param_scheduler,
                        config)
         iteration += 1
-        batch_size = mpu.get_data_parallel_world_size() * \
-                     args.micro_batch_size * \
-                     get_num_microbatches()
-        args.consumed_train_samples += batch_size
+        if args.hetero_mode != "dp":
+            batch_size = mpu.get_data_parallel_world_size() * \
+                         args.micro_batch_size * \
+                         get_num_microbatches()
+        else:
+            micro_batch_for_all_data_parallel = sum(map(lambda x, y: x * y, 
+                                                        args.hetero_micro_batch_sizes,
+                                                        args.hetero_data_parallel_splits))
+            batch_size = get_num_microbatches() * micro_batch_for_all_data_parallel
+        args.consumed_train_samples += batch_size 
         num_floating_point_operations_so_far += num_floating_point_operations(args, batch_size)
 
         # Logging.
@@ -1158,8 +1180,14 @@ def evaluate(forward_step_func,
 
     # make validation batch size independent from training batch size
     eval_batch_size = args.global_batch_size
-    eval_num_microbatches = eval_batch_size // \
-        (args.micro_batch_size * args.data_parallel_size)
+    if args.hetero_mode != "dp":
+        eval_num_microbatches = eval_batch_size // \
+            (args.micro_batch_size * args.data_parallel_size)
+    else:
+        micro_batch_for_all_data_parallel = sum(map(lambda x, y: x * y, 
+                                                    args.hetero_micro_batch_sizes,
+                                                    args.hetero_data_parallel_splits))
+        eval_num_microbatches = eval_batch_size // micro_batch_for_all_data_parallel 
 
     with torch.no_grad():
         iteration = 0
@@ -1351,15 +1379,24 @@ def build_train_valid_test_data_loaders(
         train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
             build_train_valid_test_datasets_provider)
         # Build dataloders.
-        train_dataloader = build_pretraining_data_loader(
-            train_ds, args.consumed_train_samples)
-        if args.skip_train:
-            valid_dataloader = build_pretraining_data_loader(valid_ds, 0)
+        if args.hetero_mode != "dp":
+            train_dataloader = build_pretraining_data_loader(
+                train_ds, args.consumed_train_samples)
+            if args.skip_train:
+                valid_dataloader = build_pretraining_data_loader(valid_ds, 0)
+            else:
+                valid_dataloader = build_pretraining_data_loader(
+                    valid_ds, args.consumed_valid_samples)
+            test_dataloader = build_pretraining_data_loader(test_ds, 0)
         else:
-            valid_dataloader = build_pretraining_data_loader(
-                valid_ds, args.consumed_valid_samples)
-        test_dataloader = build_pretraining_data_loader(test_ds, 0)
-
+            train_dataloader = build_pretraining_data_loader_hetero(
+                train_ds, args.consumed_train_samples)
+            if args.skip_train:
+                valid_dataloader = build_pretraining_data_loader_hetero(valid_ds, 0)
+            else:
+                valid_dataloader = build_pretraining_data_loader_hetero(
+                    valid_ds, args.consumed_valid_samples)
+            test_dataloader = build_pretraining_data_loader_hetero(test_ds, 0)
         # Flags to know if we need to do training/validation/testing.
         do_train = train_dataloader is not None and args.train_iters > 0
         do_valid = valid_dataloader is not None and args.eval_iters > 0
@@ -1369,7 +1406,7 @@ def build_train_valid_test_data_loaders(
             dtype=torch.long, device='cuda')
     else:
         flags = torch.tensor([0, 0, 0], dtype=torch.long, device='cuda')
-
+       
     torch.distributed.broadcast(flags, 0)
 
     args.do_train = getattr(args, "do_train", False) or flags[0].item()

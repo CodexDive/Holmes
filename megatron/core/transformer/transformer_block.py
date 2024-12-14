@@ -55,7 +55,14 @@ def get_num_layers_to_build(config: TransformerConfig) -> int:
         # Non-interleaved pipeline parallelism:
         # Each stage gets a contiguous set of layers.
 
-        num_layers_to_build = num_layers_per_pipeline_rank
+        if config.hetero_mode == "pp":
+            pipeline_rank = parallel_state.get_pipeline_model_parallel_rank()
+            pipeline_stages = [
+                item for sublist in config.hetero_pipeline_stages for item in sublist
+            ]
+            num_layers_to_build = pipeline_stages[pipeline_rank]
+        else:
+            num_layers_to_build = num_layers_per_pipeline_rank
 
     return num_layers_to_build
 
@@ -134,7 +141,6 @@ class TransformerBlock(MegatronModule):
 
         self._build_layers()
         self.num_layers_per_pipeline_rank = len(self.layers)
-
     def _build_layers(self):
         # Transformer layers.
         # @jcasper can we improve how we deal with layer_number?
