@@ -29,3 +29,11 @@ class RMSNorm(torch.nn.Module):
     def forward(self, x):
         output = self._norm(x.float()).type_as(x)
         return output * self.weight
+
+class RMSNorm2(RMSNorm):
+
+    def __init__(self,
+                 config,
+                 hidden_size: int,
+                 eps: float = 1e-5):
+        super().__init__(hidden_size, eps=eps, sequence_parallel=config.sequence_parallel)

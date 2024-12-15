@@ -4,12 +4,18 @@ from megatron.core.fusions.fused_bias_dropout import get_bias_dropout_add
 
 from megatron.core.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from megatron.core.transformer.attention import SelfAttention, SelfAttentionSubmodules
-from megatron.core.transformer.custom_layers.transformer_engine import (
-    TEDotProductAttention,
-    TELayerNormColumnParallelLinear,
-    TENorm,
-    TERowParallelLinear,
-)
+try:
+    from megatron.core.transformer.custom_layers.transformer_engine import (
+        TEDotProductAttention,
+        TELayerNormColumnParallelLinear,
+        TENorm,
+        TERowParallelLinear,
+    )
+except:
+    TEDotProductAttention = None
+    TELayerNormColumnParallelLinear = None
+    TENorm = None
+    TERowParallelLinear = None
 from megatron.core.transformer.dot_product_attention import DotProductAttention
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.identity_op import IdentityOp
@@ -17,6 +23,7 @@ from megatron.core.transformer.mlp import MLP, MLPSubmodules
 from megatron.core.transformer.moe.moe_layer import MoELayer
 from megatron.core.transformer.spec_utils import ModuleSpec
 from megatron.core.transformer.transformer_layer import TransformerLayer, TransformerLayerSubmodules
+from megatron.legacy.model.rms_norm import RMSNorm2 as RMSNorm
 
 
 def get_llama_layer_with_te_spec(
@@ -63,7 +70,7 @@ def get_llama_layer_local_spec(
     return ModuleSpec(
         module=TransformerLayer,
         submodules=TransformerLayerSubmodules(
-            input_layernorm=TENorm,
+            input_layernorm=RMSNorm,
             self_attention=ModuleSpec(
                 module=SelfAttention,
                 params={"attn_mask_type": AttnMaskType.causal},
@@ -71,12 +78,12 @@ def get_llama_layer_local_spec(
                     linear_qkv=ColumnParallelLinear,
                     core_attention=DotProductAttention,
                     linear_proj=RowParallelLinear,
-                    q_layernorm=TENorm if qk_layernorm else IdentityOp,
-                    k_layernorm=TENorm if qk_layernorm else IdentityOp,
+                    q_layernorm=RMSNorm if qk_layernorm else IdentityOp,
+                    k_layernorm=RMSNorm if qk_layernorm else IdentityOp,
                 ),
             ),
             self_attn_bda=get_bias_dropout_add,
-            pre_mlp_layernorm=TENorm,
+            pre_mlp_layernorm=RMSNorm,
             mlp=mlp,
             mlp_bda=get_bias_dropout_add,
             sharded_state_dict_keys_map={

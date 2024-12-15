@@ -13,10 +13,15 @@ from megatron.core.dist_checkpointing.mapping import ShardedStateDict
 from megatron.core.dist_checkpointing.utils import replace_prefix_for_sharding
 from megatron.core.fusions.fused_layer_norm import FusedLayerNorm
 from megatron.core.packed_seq_params import PackedSeqParams
-from megatron.core.transformer.custom_layers.transformer_engine import (
-    TENorm,
-    get_cpu_offload_context,
-)
+from megatron.legacy.model.utils import get_norm
+try:
+    from megatron.core.transformer.custom_layers.transformer_engine import (
+        TENorm,
+        get_cpu_offload_context,
+    )
+except:
+    TENorm = None
+    get_cpu_offload_context = None
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
@@ -176,11 +181,12 @@ class TransformerBlock(MegatronModule):
 
         if self.post_process and self.post_layer_norm:
             # Final layer norm before output.
-            self.final_layernorm = TENorm(
-                config=self.config,
-                hidden_size=self.config.hidden_size,
-                eps=self.config.layernorm_epsilon,
-            )
+            if TENorm is not None:
+                self.final_layernorm = TENorm(config=self.config,
+                                              hidden_size=self.config.hidden_size,
+                                              eps=self.config.layernorm_epsilon)
+            else:
+                self.final_layernorm = get_norm(config=self.config)
 
     def _get_layer(self, layer_number: int):
         return self.layers[layer_number]

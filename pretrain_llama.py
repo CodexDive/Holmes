@@ -60,8 +60,7 @@ def model_provider(pre_process=True, post_process=True):
     """
 
     args = get_args()
-    #use_te = args.transformer_impl == "transformer_engine"
-    use_te = args.transformer_impl == "local"
+    use_te = args.transformer_impl == "transformer_engine"
     
 
     print_rank_0('building LLaMA model ...')
@@ -77,7 +76,7 @@ def model_provider(pre_process=True, post_process=True):
         transformer_layer_spec = import_module(args.spec)
     else:
         if use_te:
-             transformer_layer_spec = get_llama_layer_with_te_spec(args.num_experts, args.moe_grouped_gemm)
+            transformer_layer_spec = get_llama_layer_with_te_spec(args.num_experts, args.moe_grouped_gemm)
         else:
             transformer_layer_spec = get_llama_layer_local_spec(args.num_experts, args.moe_grouped_gemm)
 
