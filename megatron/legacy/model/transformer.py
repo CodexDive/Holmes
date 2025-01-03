@@ -1576,14 +1576,10 @@ class ParallelTransformer(MegatronModule):
                     num_ranks_in_enc = args.pipeline_model_parallel_split_rank
                     offset = (pipeline_rank - num_ranks_in_enc) * self.num_layers
             else:
-                print("---------here---------")
                 if args.hetero_mode != "pp":
-                    print("--------here1----------")
                     offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
                 else:
-                    offset, self.num_layers = _get_layer_info(args)
-                    print("offset",offset)
-                    print("num_layers",self.num_layers)              
+                    offset, self.num_layers = _get_layer_info(args)           
 
         if self.num_layers == 0:
             # When a standalone embedding stage is used (e.g.,

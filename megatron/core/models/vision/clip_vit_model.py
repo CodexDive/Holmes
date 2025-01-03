@@ -6,7 +6,7 @@ import torch
 
 from megatron.core import tensor_parallel
 from megatron.core.models.common.vision_module.vision_module import VisionModule
-from megatron.core.transformer.custom_layers.transformer_engine import TENorm
+# from megatron.core.transformer.custom_layers.transformer_engine import TENorm
 from megatron.core.transformer.enums import ModelType
 from megatron.core.transformer.spec_utils import ModuleSpec
 from megatron.core.transformer.transformer_block import TransformerBlock

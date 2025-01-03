@@ -1346,8 +1346,14 @@ def _add_distributed_args(parser):
                        help='overlap pipeline parallel communication with forward and backward chunks',
                        dest='overlap_p2p_comm')
     group.add_argument('--distributed-backend', default='nccl',
-                       choices=['nccl', 'gloo','zccl'],
+                       choices=['nccl', 'gloo', 'zccl', 'xccl'],
                        help='Which backend to use for distributed training.')
+    group.add_argument('--cross-distributed-backend', default='nccl',
+                       choices=['nccl', 'gloo', 'zccl', 'xccl'],
+                       help='Which backend to use for cross distributed training.')
+    group.add_argument('--local-distributed-backend', default='nccl',
+                       choices=['nccl', 'gloo', 'zccl', 'xccl'],
+                       help='Which backend to use for local distributed training.')
     group.add_argument('--distributed-timeout-minutes', type=int, default=10,
                        help='Timeout minutes for torch.distributed.')
     group.add_argument('--overlap-grad-reduce', action='store_true',

@@ -133,6 +133,8 @@ def initialize_model_parallel(
     hetero_mode: Optional[str] = None,
     distributed_timeout_minutes: int = 30,
     use_hetnex: bool = False,
+    cross_distributed_backend = "nccl",
+    local_distributed_backend = "nccl"
 ) -> None:
     """Initialize model data parallel groups.
 
@@ -321,11 +323,11 @@ def initialize_model_parallel(
                 ranks = hetero_context.to_physical_ranks(ranks)
                 device_types=hetero_context.get_device_types(ranks)
             if  use_hetnex:
-                group = new_process_group(ranks,timeout=timeout, pg_options=get_nccl_options('dp', nccl_comm_cfgs),device_types=device_types)
+                group = new_process_group(ranks,timeout=timeout, pg_options=get_nccl_options('dp', nccl_comm_cfgs),device_types=device_types, backend=local_distributed_backend)
                 group_gloo = new_process_group(ranks, timeout=timeout, backend="gloo",device_types=device_types)
             else:
                 group = torch.distributed.new_group(
-                    ranks, timeout=timeout, pg_options=get_nccl_options('dp', nccl_comm_cfgs)
+                    ranks, timeout=timeout, pg_options=get_nccl_options('dp', nccl_comm_cfgs), backend=local_distributed_backend
                 )
                 group_gloo = torch.distributed.new_group(ranks, timeout=timeout, backend="gloo")
             if rank in ranks:
@@ -339,7 +341,7 @@ def initialize_model_parallel(
                 # Build the group based on the physical ranks 
                 ranks_with_cp = hetero_context.to_physical_ranks(ranks_with_cp)
             group_with_cp = torch.distributed.new_group(
-                ranks_with_cp, timeout=timeout, pg_options=get_nccl_options('dp_cp', nccl_comm_cfgs)
+                ranks_with_cp, timeout=timeout, pg_options=get_nccl_options('dp_cp', nccl_comm_cfgs), backend=local_distributed_backend
             )
             group_with_cp_gloo = torch.distributed.new_group(
                 ranks_with_cp, timeout=timeout, backend="gloo"
@@ -389,7 +391,7 @@ def initialize_model_parallel(
                     # Build the group based on the physical ranks 
                     ranks = hetero_context.to_physical_ranks(ranks)
                 group = torch.distributed.new_group(
-                    ranks, timeout=timeout, pg_options=get_nccl_options('cp', nccl_comm_cfgs)
+                    ranks, timeout=timeout, pg_options=get_nccl_options('cp', nccl_comm_cfgs), backend=local_distributed_backend
                 )
                 if rank in ranks:
                     _CONTEXT_PARALLEL_GROUP = group
@@ -409,10 +411,10 @@ def initialize_model_parallel(
             ranks = hetero_context.to_physical_ranks(ranks)
             device_types=hetero_context.get_device_types(ranks)
         if use_hetnex:
-                group = new_process_group(ranks,timeout=timeout, pg_options=get_nccl_options('mp', nccl_comm_cfgs),device_types=device_types)
+                group = new_process_group(ranks,timeout=timeout, pg_options=get_nccl_options('mp', nccl_comm_cfgs),device_types=device_types, backend=cross_distributed_backend)
         else:
             group = torch.distributed.new_group(
-                ranks, timeout=timeout, pg_options=get_nccl_options('mp', nccl_comm_cfgs)
+                ranks, timeout=timeout, pg_options=get_nccl_options('mp', nccl_comm_cfgs), backend=cross_distributed_backend
             )
         if rank in ranks:
             _MODEL_PARALLEL_GROUP = group
@@ -431,10 +433,10 @@ def initialize_model_parallel(
             ranks = hetero_context.to_physical_ranks(ranks)
             device_types=hetero_context.get_device_types(ranks)
         if use_hetnex:
-                group = new_process_group(ranks, timeout=timeout, pg_options=get_nccl_options('tp', nccl_comm_cfgs),device_types=device_types)
+                group = new_process_group(ranks, timeout=timeout, pg_options=get_nccl_options('tp', nccl_comm_cfgs),device_types=device_types, backend=local_distributed_backend)
         else:
             group = torch.distributed.new_group(
-                ranks, timeout=timeout, pg_options=get_nccl_options('tp', nccl_comm_cfgs)
+                ranks, timeout=timeout, pg_options=get_nccl_options('tp', nccl_comm_cfgs), backend=local_distributed_backend
             )
         if rank in ranks:
             _TENSOR_MODEL_PARALLEL_GROUP = group
@@ -462,10 +464,10 @@ def initialize_model_parallel(
             ranks = hetero_context.to_physical_ranks(ranks)
             device_types=hetero_context.get_device_types(ranks)
         if use_hetnex:
-                group = new_process_group(ranks,timeout=timeout, pg_options=get_nccl_options('pp', nccl_comm_cfgs),device_types=device_types)
+                group = new_process_group(ranks,timeout=timeout, pg_options=get_nccl_options('pp', nccl_comm_cfgs),device_types=device_types, backend=cross_distributed_backend)
         else:
             group = torch.distributed.new_group(
-                ranks, timeout=timeout, pg_options=get_nccl_options('pp', nccl_comm_cfgs)
+                ranks, timeout=timeout, pg_options=get_nccl_options('pp', nccl_comm_cfgs), backend=cross_distributed_backend
             )
         if rank in ranks:
             _PIPELINE_MODEL_PARALLEL_GROUP = group
@@ -490,10 +492,10 @@ def initialize_model_parallel(
         if hetero_mode:
             device_types=hetero_context.get_device_types(embedding_ranks)
         if use_hetnex:
-                group = new_process_group(embedding_ranks,timeout=timeout, pg_options=get_nccl_options('embd', nccl_comm_cfgs),device_types=device_types)
+                group = new_process_group(embedding_ranks,timeout=timeout, pg_options=get_nccl_options('embd', nccl_comm_cfgs),device_types=device_types, backend=cross_distributed_backend)
         else:
             group = torch.distributed.new_group(
-                embedding_ranks, timeout=timeout, pg_options=get_nccl_options('embd', nccl_comm_cfgs)
+                embedding_ranks, timeout=timeout, pg_options=get_nccl_options('embd', nccl_comm_cfgs), backend=cross_distributed_backend
             )
         if rank in embedding_ranks:
             _EMBEDDING_GROUP = group
@@ -503,12 +505,13 @@ def initialize_model_parallel(
             device_types=hetero_context.get_device_types(position_embedding_ranks)
         if use_hetnex:
                 group = new_process_group(position_embedding_ranks,timeout=timeout,
-                pg_options=get_nccl_options('embd', nccl_comm_cfgs),device_types=device_types)
+                pg_options=get_nccl_options('embd', nccl_comm_cfgs),device_types=device_types, backend=cross_distributed_backend)
         else:
             group = torch.distributed.new_group(
                 position_embedding_ranks,
                 timeout=timeout,
                 pg_options=get_nccl_options('embd', nccl_comm_cfgs),
+                backend = cross_distributed_backend
             )
         if rank in position_embedding_ranks:
             _POSITION_EMBEDDING_GROUP = group
@@ -536,7 +539,7 @@ def initialize_model_parallel(
             # Build the group based on the physical ranks 
             ranks = hetero_context.to_physical_ranks(ranks)
         group = torch.distributed.new_group(
-            ranks, timeout=timeout, pg_options=get_nccl_options('tp_dp_cp', nccl_comm_cfgs)
+            ranks, timeout=timeout, pg_options=get_nccl_options('tp_dp_cp', nccl_comm_cfgs), backend=local_distributed_backend
         )
         if rank in ranks:
             _TENSOR_AND_DATA_PARALLEL_GROUP_WITH_CP = group
@@ -553,7 +556,7 @@ def initialize_model_parallel(
                 end_rank = start_rank + tensor_model_parallel_size
                 ranks = ranks + list(range(start_rank, end_rank))
             group = torch.distributed.new_group(
-                ranks, timeout=timeout, pg_options=get_nccl_options('tp_dp', nccl_comm_cfgs)
+                ranks, timeout=timeout, pg_options=get_nccl_options('tp_dp', nccl_comm_cfgs), backend=local_distributed_backend
             )
             if rank in ranks:
                 _TENSOR_AND_DATA_PARALLEL_GROUP = group
@@ -587,7 +590,7 @@ def initialize_model_parallel(
                 # Build the group based on the physical ranks 
                 ranks = hetero_context.to_physical_ranks(ranks)
             group = torch.distributed.new_group(
-                ranks, timeout=timeout, pg_options=get_nccl_options('tp_exp', nccl_comm_cfgs)
+                ranks, timeout=timeout, pg_options=get_nccl_options('tp_exp', nccl_comm_cfgs), backend=local_distributed_backend
             )
             if rank in ranks:
                 _TENSOR_AND_EXPERT_PARALLEL_GROUP = group
@@ -597,7 +600,7 @@ def initialize_model_parallel(
                     start_rank + k, end_rank, tensor_model_parallel_size * context_parallel_size
                 )
                 group = torch.distributed.new_group(
-                    ranks, pg_options=get_nccl_options('exp', nccl_comm_cfgs)
+                    ranks, pg_options=get_nccl_options('exp', nccl_comm_cfgs), backend=local_distributed_backend
                 )
                 if rank in ranks:
                     _EXPERT_MODEL_PARALLEL_GROUP = group
@@ -612,7 +615,7 @@ def initialize_model_parallel(
                 # Build the group based on the physical ranks 
                 ranks = hetero_context.to_physical_ranks(ranks)
             group = torch.distributed.new_group(
-                ranks, timeout=timeout, pg_options=get_nccl_options('dp_modulo_exp', nccl_comm_cfgs)
+                ranks, timeout=timeout, pg_options=get_nccl_options('dp_modulo_exp', nccl_comm_cfgs), backend=local_distributed_backend
             )
             group_gloo = torch.distributed.new_group(ranks, backend="gloo")
             if rank in ranks:
