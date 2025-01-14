@@ -294,9 +294,9 @@ def _communicate(
         tensor_recv_prev = torch.empty(
             recv_prev_shape,
             requires_grad=True,
-            device=torch.cuda.current_device(),
+            device=torch.cuda.current_device() if config.use_gdr else "cpu",
             dtype=config.pipeline_dtype,
-        ).to("cpu")
+        )
     if recv_next:
         if config.pipeline_dtype is None:
             raise RuntimeError("dtype must be provided if recv_next is True")
@@ -308,12 +308,12 @@ def _communicate(
         tensor_recv_next = torch.empty(
             recv_next_shape,
             requires_grad=True,
-            device=torch.cuda.current_device(),
+            device=torch.cuda.current_device() if config.use_gdr else "cpu",
             dtype=config.pipeline_dtype,
-        ).to("cpu")
-    if tensor_send_prev is not None:
+        )
+    if tensor_send_prev is not None and not config.use_gdr:
         tensor_send_prev = tensor_send_prev.to("cpu")
-    if tensor_send_next is not None:
+    if tensor_send_next is not None and not config.use_gdr:
         tensor_send_next = tensor_send_next.to("cpu")
 
     # Send tensors in both the forward and backward directions as appropriate.
@@ -348,9 +348,9 @@ def _communicate(
         # To protect against race condition when using batch_isend_irecv().
         # User should assert that we have a modern enough PyTorch to not need this
         torch.cuda.synchronize()
-    if recv_prev:
+    if recv_prev and not config.use_gdr:
         tensor_recv_prev = tensor_recv_prev.cuda()
-    if recv_next:
+    if recv_next and not config.use_gdr:
         tensor_recv_next = tensor_recv_next.cuda()
     return tensor_recv_prev, tensor_recv_next, reqs
 

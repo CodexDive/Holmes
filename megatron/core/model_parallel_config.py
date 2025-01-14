@@ -42,6 +42,8 @@ class ModelParallelConfig:
     expert_model_parallel_size: int = 1
     """Distributes Moe Experts across sub data parallel dimension."""
 
+    use_gdr: bool = False
+
     ###################
     # Initialization
     ###################

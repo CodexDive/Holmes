@@ -11,11 +11,16 @@ export GLOO_SOCKET_IFNAME="ens17f0np0"
 export NCCL_IB_HCA=mlx5_cx6_0,mlx5_cx6_1,mlx5_cx6_2,mlx5_cx6_3
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
+
+export UCX_NET_DEVICES=mlx5_cx6_0:1
+# export ZCCL_LOG_LEVEL=debug
+
+# export UCX_WARN_UNUSED_ENV_VARS=n
 # Change for multinode config
-MASTER_ADDR=${MASTER_ADDR:-"10.107.204.3"}
-MASTER_PORT=${MASTER_PORT:-4567}
+MASTER_ADDR=${MASTER_ADDR:-"10.107.204.72"}
+MASTER_PORT=${MASTER_PORT:-6789}
 NUM_NODES=${1:-2}
-NODE_RANK=${2:-1}
+NODE_RANK=${2:-0}
 NODE_TYPE=klx
 WORLD_SIZE=$(($GPUS_PER_NODE*$NUM_NODES))
 export CUDA_DEVICE_MAX_CONNECTIONS=1
@@ -109,8 +114,8 @@ MODEL_PARALLEL_ARGS=(
     #--sequence-parallel
     --distributed-backend gloo
     --local-distributed-backend nccl
-    --cross-distributed-backend gloo
-
+    --cross-distributed-backend zccl
+    --use-gdr
 )
 
 DATA_ARGS=(
@@ -134,4 +139,5 @@ torchrun ${DISTRIBUTED_ARGS[@]} pretrain_llama.py \
     ${DATA_ARGS[@]} \
     ${EVAL_AND_LOGGING_ARGS[@]} \
     ${HETERO_ARGS[@]} \
+    2>&1 | tee nv_log.txt
 

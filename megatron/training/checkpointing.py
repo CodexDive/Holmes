@@ -211,7 +211,11 @@ def read_metadata(tracker_filename):
     # Get the max iteration retrieved across the ranks.
     if torch.distributed.is_initialized():
         iters_cuda = torch.tensor([iteration], dtype=torch.long, device='cuda')
-        torch.distributed.all_reduce(iters_cuda, op=torch.distributed.ReduceOp.MAX)
+        # mod
+        # torch.distributed.all_reduce(iters_cuda, op=torch.distributed.ReduceOp.MAX)
+        iters_cuda_ = iters_cuda.to('cpu')
+        torch.distributed.all_reduce(iters_cuda_, op=torch.distributed.ReduceOp.MAX)
+        iters_cuda.copy_(iters_cuda_)
         max_iter = iters_cuda[0].item()
 
         # We should now have all the same iteration.
@@ -324,15 +328,19 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler,
                  .format(iteration, args.save))
 
     # And update the latest iteration
+    tracker_filename = get_checkpoint_tracker_filename(args.save)
     if not torch.distributed.is_initialized() \
        or torch.distributed.get_rank() == 0:
-        tracker_filename = get_checkpoint_tracker_filename(args.save)
         with open(tracker_filename, 'w') as f:
             f.write(str(iteration))
 
     # Wait so everyone is done (not necessary)
     if torch.distributed.is_initialized():
         torch.distributed.barrier()
+
+    if not os.path.exists(tracker_filename):
+        with open(tracker_filename, 'w') as f:
+            f.write(str(iteration))
 
 
 def generate_state_dict(args, model, optimizer, opt_param_scheduler,

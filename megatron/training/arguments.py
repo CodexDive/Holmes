@@ -628,6 +628,7 @@ def core_transformer_config_from_args(args, config_class=None):
     kw_args['batch_p2p_comm'] = not args.overlap_p2p_comm
     kw_args['num_moe_experts'] = args.num_experts
     kw_args['rotary_interleaved'] = args.rotary_interleaved
+    kw_args['use_gdr'] = args.use_gdr
     if args.swiglu:
         kw_args['activation_func'] = F.silu
         kw_args['gated_linear_unit'] = True
@@ -1356,6 +1357,7 @@ def _add_distributed_args(parser):
                        help='Which backend to use for local distributed training.')
     group.add_argument('--distributed-timeout-minutes', type=int, default=10,
                        help='Timeout minutes for torch.distributed.')
+    parser.add_argument("--use-gdr", action="store_true", help="Use GDR for cross distributed backend of ZCCL")
     group.add_argument('--overlap-grad-reduce', action='store_true',
                        default=False, help='If set, overlap DDP grad reduce.')
     group.add_argument('--no-delay-grad-reduce', action='store_false',

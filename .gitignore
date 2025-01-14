@@ -7,3 +7,6 @@ build
 slurm*
 logs
 .vscode
+tests/functional_tests/test_results/jet/dgx_h100/gpt3_345m_mcore-pyt_merge-request_bf16_nodes-1_gpus-8_bs-32_steps-50_tp-1_pp-1_args--recompute-granularity-full-recompute-method-uniform-recompute-num-layers-1-_mcore-true_te-false.json
+tests/functional_tests/test_results/jet/dgx_h100/gpt3_345m_mcore-pyt_nightly_bf16_nodes-1_gpus-8_bs-32_steps-50_tp-2_pp-2_args--sequence-parallel-num-experts-4-expert-model-parallel-size-2-_mcore-true_te-false.json
+tests/functional_tests/test_results/jet/dgx_h100/gpt3_345m_mcore-pyt_merge-request_bf16_nodes-1_gpus-8_bs-32_steps-50_tp-2_pp-1_args--sequence-parallel-num-experts-8-expert-model-parallel-size-2-_mcore-true_te-false.json

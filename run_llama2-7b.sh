@@ -6,13 +6,13 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
 GPUS_PER_NODE=`echo "$CUDA_VISIBLE_DEVICES" | awk -F, '{print NF}'`
 export GLOO_SOCKET_IFNAME=ens20f0np0
 #export UCX_NET_DEVICES=mlx5_cx4lx_3
-export UCX_NET_DEVICES=ens20f0np0
+#export UCX_NET_DEVICES=mlx5_cx4lx_3
 #export UCX_LOG_LEVEL=DEBUG
 # Change for multinode config
-MASTER_ADDR=${MASTER_ADDR:-"10.107.204.3"}
-MASTER_PORT=${MASTER_PORT:-4567}
+MASTER_ADDR=${MASTER_ADDR:-"10.107.204.72"}
+MASTER_PORT=${MASTER_PORT:-6789}
 NUM_NODES=${1:-2}
-NODE_RANK=${2:-0}
+NODE_RANK=${2:-1}
 NODE_TYPE=klx
 WORLD_SIZE=$(($GPUS_PER_NODE*$NUM_NODES))
 export CUDA_DEVICE_MAX_CONNECTIONS=1
@@ -27,6 +27,8 @@ echo "TOKENIZER_PATH: $TOKENIZER_PATH"
 export LD_LIBRARY_PATH=/workspace/tools/xre-ubuntu_2004-x86_64-0.0.0.1-2024-04-26-00-05-07-daily/so:/workspace/tools/xccl_rdma-ubuntu_x86_64/so:$LD_LIBRARY_PATH
 ############################################ Parameters Configuration End                  ############################################
 
+# export ZCCL_LOG_LEVEL=debug
+export UCX_NET_DEVICES=mlx5_1:1
 
 ############################################ Kernel Launch Mode Configuration Begin        ############################################
 #imode 模式需要同时开启下列3个环境变量
@@ -172,14 +174,15 @@ TRAINING_ARGS=(
 
 MODEL_PARALLEL_ARGS=(
 	--tensor-model-parallel-size 1
-	--pipeline-model-parallel-size 1 
+	--pipeline-model-parallel-size 2 
     --use-distributed-optimizer
     --overlap-grad-reduce
     --distributed-backend nccl
     #--sequence-parallel
     --distributed-backend gloo
     --local-distributed-backend xccl
-    --cross-distributed-backend gloo
+    --cross-distributed-backend zccl
+    --use-gdr
 )
 
 DATA_ARGS=(
@@ -221,4 +224,4 @@ torchrun ${DISTRIBUTED_ARGS[@]} pretrain_llama.py \
     ${DATA_ARGS[@]} \
     ${EVAL_AND_LOGGING_ARGS[@]} \
     ${HETERO_ARGS[@]} \
-
+    2>&1 | tee klx_log.txt

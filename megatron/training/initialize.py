@@ -239,6 +239,8 @@ def _initialize_distributed():
         print("[rank{}]start init process group, backend: {}, world_size: {}, timeout: {}\n".format(
             args.rank, args.distributed_backend, args.world_size, args.distributed_timeout_minutes
         ))
+        if args.distributed_backend == "zccl" or args.cross_distributed_backend == "zccl" or args.local_distributed_backend == "zccl":
+            import torch_zccl
         torch.distributed.init_process_group(
             backend=args.distributed_backend,
             world_size=args.world_size,
