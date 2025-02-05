@@ -238,11 +238,16 @@ class Timers:
                 rank_name_to_time[rank, i] = self._timers[name].elapsed(reset=reset)
 
         # See the note above for why we are not using gather.
-        rank_name_to_time_ = rank_name_to_time.to("cpu")
-        torch.distributed.all_gather(
-            [t.view(-1) for t in rank_name_to_time_], rank_name_to_time_[rank, :].view(-1)
-        )
-        rank_name_to_time.copy_(rank_name_to_time_)
+        try:
+            torch.distributed.all_gather(
+                [t.view(-1) for t in rank_name_to_time], rank_name_to_time[rank, :].view(-1)
+            )
+        except:
+            rank_name_to_time_ = rank_name_to_time.to("cpu")
+            torch.distributed.all_gather(
+                [t.view(-1) for t in rank_name_to_time_], rank_name_to_time_[rank, :].view(-1)
+            )
+            rank_name_to_time.copy_(rank_name_to_time_)
 
         return rank_name_to_time
 
