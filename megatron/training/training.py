@@ -206,10 +206,14 @@ def pretrain(train_valid_test_dataset_provider,
     start_time_tensor = torch.tensor([_TRAIN_START_TIME],
                                      dtype=torch.float,
                                      device='cuda')
-    start_time_tensor_ = start_time_tensor.to("cpu")
-    torch.distributed.all_reduce(start_time_tensor_,
-                                 op=torch.distributed.ReduceOp.MIN)
-    start_time_tensor.copy_(start_time_tensor_)
+    if args.distributed_backend == "gloo":
+        start_time_tensor_ = start_time_tensor.to("cpu")
+        torch.distributed.all_reduce(start_time_tensor_,
+                                    op=torch.distributed.ReduceOp.MIN)
+        start_time_tensor.copy_(start_time_tensor_)
+    else:
+        torch.distributed.all_reduce(start_time_tensor,
+                                    op=torch.distributed.ReduceOp.MIN)
     _TRAIN_START_TIME = start_time_tensor.item()
     print_rank_0('time to initialize megatron (seconds): {:.3f}'.format(
         time.time() - _TRAIN_START_TIME))
